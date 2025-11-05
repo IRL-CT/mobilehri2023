@@ -72,9 +72,8 @@ class odrive_command(Node):
         v = msg.linear.x
         w = msg.angular.z
         # TODO: Your Code Here -------------------------------------------
-        Vl = 0
-        Vr = 0
-        raise NotImplementedError("Differential Drive Controller, remove this line once implemented.")
+        Vl = (v - self.wheel_track * w / 2) / self.R
+        Vr = (v + self.wheel_track * w / 2) / self.R
         # ----------------------------------------------------------------
 
         # convert to turns per sec (ODrive Unit)

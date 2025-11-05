@@ -6,7 +6,7 @@ from rclpy.node import Node
 
 from geometry_msgs.msg import Twist
 from dance_interfaces.action import Dance
-from dance_manager.dance_moves import stepping_forward
+from dance_manager.dance_moves import stepping_forward, stepping_backward
 
 
 class DanceActionServer(Node):
@@ -35,8 +35,10 @@ class DanceActionServer(Node):
         # Disable default motion while executing action
         self.action_active = True
 
-        if goal_handle.request.dance_move == "Stepping":
+        if goal_handle.request.dance_move == "SteppingForward":
             stepping_forward(self.twist_pub)
+        elif goal_handle.request.dance_move == "SteppingBackward":
+            stepping_backward(self.twist_pub)
         goal_handle.succeed()
         
         # Re-enable default motion after action completes

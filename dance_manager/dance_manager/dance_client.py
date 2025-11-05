@@ -59,11 +59,11 @@ def main(args=None):
     
     # Send goals using the improved method
     print("Sending first goal...")
-    success1 = action_client.send_goal_and_wait("Stepping")
+    success1 = action_client.send_goal_and_wait("SteppingBackward")
     print(f"First goal completed: {success1}")
     
     print("Sending second goal...")
-    success2 = action_client.send_goal_and_wait("Stepping")
+    success2 = action_client.send_goal_and_wait("SteppingForward")
     print(f"Second goal completed: {success2}")
     
     action_client.destroy_node()
