@@ -25,6 +25,17 @@ class TeleopTwistJoy(Node):
             # use to represent angular velocity
             t.angular.z = msg.axes[3]
             self.twist_pub.publish(t)
+        elif msg.buttons[5] == 1:
+            start = time.time()
+            while time.time() <= start + 1:
+                t.linear.x = (time.time() - start) * 2
+                self.twist_pub.publish(t)
+                time.sleep(0.1)
+            start = time.time()
+            while time.time() <= start + 1:
+                t.linear.x = 2 * (1 - time.time() + start)
+                self.twist_pub.publish(t)
+                time.sleep(0.1)
         else:
             t.linear.x = 0.0
             t.angular.z = 0.0
