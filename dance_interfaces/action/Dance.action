@@ -1,0 +1,8 @@
+# Request
+string dance_move
+---
+# Result
+int32 result_code
+---
+# Feedback
+int32 progress
