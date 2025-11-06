@@ -19,14 +19,14 @@ class odrive_command(Node):
         self.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
         self.axis1.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
 
-        self.axis0.config.enable_watchdog = True
-        self.axis1.config.enable_watchdog = True
+        # self.axis0.config.enable_watchdog = True
+        # self.axis1.config.enable_watchdog = True
 
-        self.axis0.config.watchdog_timeout = 4
-        self.axis1.config.watchdog_timeout = 4
+        # self.axis0.config.watchdog_timeout = 4
+        # self.axis1.config.watchdog_timeout = 4
 
-        self.axis0.watchdog_feed()
-        self.axis1.watchdog_feed()
+        # self.axis0.watchdog_feed()
+        # self.axis1.watchdog_feed()
 
         self.odrv.clear_errors()
 

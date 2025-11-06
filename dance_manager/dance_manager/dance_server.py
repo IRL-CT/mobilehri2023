@@ -6,7 +6,7 @@ from rclpy.node import Node
 
 from geometry_msgs.msg import Twist
 from dance_interfaces.action import Dance
-from dance_manager.dance_moves import stepping_forward, stepping_backward
+from dance_manager.dance_moves import inch_forward, inch_backward, tap_on_side, zigzagging_forward
 
 
 class DanceActionServer(Node):
@@ -35,10 +35,23 @@ class DanceActionServer(Node):
         # Disable default motion while executing action
         self.action_active = True
 
-        if goal_handle.request.dance_move == "SteppingForward":
-            stepping_forward(self.twist_pub)
-        elif goal_handle.request.dance_move == "SteppingBackward":
-            stepping_backward(self.twist_pub)
+        # Dictionary-based switch for dance moves
+        dance_moves = {
+            "InchForward": lambda: inch_forward(self.twist_pub),
+            "InchBackward": lambda: inch_backward(self.twist_pub),
+            "TapOnLeft": lambda: tap_on_side(self.twist_pub, side="left"),
+            "TapOnRight": lambda: tap_on_side(self.twist_pub, side="right"),
+            "ZigZaggingForward": lambda: zigzagging_forward(self.twist_pub)
+        }
+        
+        # Execute the requested dance move
+        requested_move = goal_handle.request.dance_move
+        if requested_move in dance_moves:
+            dance_moves[requested_move]()
+            self.get_logger().info(f'Executed dance move: {requested_move}')
+        else:
+            self.get_logger().warn(f'Unknown dance move: {requested_move}')
+        
         goal_handle.succeed()
         
         # Re-enable default motion after action completes
