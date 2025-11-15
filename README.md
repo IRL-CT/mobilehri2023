@@ -62,11 +62,13 @@ ros2 launch dance_manager dance_server_launch.py
 ```
 ### Start mobile base (ROS starts to communicate with ODrive)
 ```bash
+# in a seperate terminal
 ros2 launch mobile_robot_control mobile_robot_launch.py
 ```
 
 Now, the robot starts listening to the command to follow! You can test it with the following command:
 ```bash
+# in a seperate terminal
 ros2 action send_goal /dance dance_interfaces/action/Dance '{"dance_move":"ZigZaggingForward"}'
 ```
 The robot should start walking forward.

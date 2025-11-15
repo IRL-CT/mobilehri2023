@@ -11,7 +11,7 @@ Where to look in the source tree
 - `dance_manager/dance_manager/dance_server.py` — main action server logic and orchestration, waiting for the client to send moves.
 - `dance_manager/dance_manager/dance_client.py` — helper client code for sending a series of dance moves and handling feedback.
 - `dance_manager/dance_manager/dance_moves.py` — pre-defined moves, mostly to keep the workspace organized. Can think of it as the library of dance moves.
-- `dance_manager/launch/dance_server_launch.py` — launch file that starts the server node defined in dance_server.py.
+- `dance_manager/launch/dance_server_launch.py` — launch file that starts the server node defined in `dance_server.py`.
 
 ## Adding new dance moves
 
@@ -103,14 +103,18 @@ ros2 action send_goal /dance dance_interfaces/action/Dance '{"dance_move":"inch_
 1) Start the server (on a machine with ROS 2 and the workspace sourced):
 
 ```bash
-ros2 launch dance_manager dance_server_launch.py
+$ cd ~/dancebot_ws/src/mobilehri2023
+$ source install/setup.bash
+$ ros2 launch dance_manager dance_server_launch.py
+# in a seperate terminal, remember to source
+$ ros2 launch mobile_robot_control mobile_robot_launch.py
 ```
 
 2) Send a goal from the CLI (fields depend on the action definition):
 
 ```bash
-ros2 action send_goal /dance dance_interfaces/action/Dance '{"dance_move":"ZigZaggingForward"}'
-ros2 action send_goal /dance dance_interfaces/action/Dance '{"dance_move":"InchForward"}'
+$ ros2 action send_goal /dance dance_interfaces/action/Dance '{"dance_move":"ZigZaggingForward"}'
+$ ros2 action send_goal /dance dance_interfaces/action/Dance '{"dance_move":"InchForward"}'
 ```
 
 3) Programmatic client example:
@@ -132,4 +136,10 @@ def main(args=None):
     
     action_client.destroy_node()
     rclpy.shutdown()
+```
+
+```bash
+$ cd ~/dancebot_ws/src/mobilehri2023/dance_manager/dance_manager
+$ source ~/dancebot_ws/install/setup.bash
+$ python3 dance_client.py
 ```
