@@ -2,14 +2,14 @@
 Code base for robot chair dance 2025
 
 ## StartUp
-1. Connect the Raspberry Pi to the display or ssh into it
+1. Connect the Raspberry Pi to the display or SSH into it
 ```
 username: dancerobot
 password: far1@FAR
 ```
-2. Power on ODrive, connect the hoverboard batter with the ODrive board.
+2. Power on ODrive, and connect the hoverboard battery to the ODrive board.
 3. ODrive Calibration:
-- Make sure both wheels are off the ground and free to spin. (Put a book or a brick under the chasis).
+- Make sure both wheels are off the ground and free to spin. (Put a book or a brick under the chassis).
 - Open a terminal
 ```bash
 $ odrivetool #(enter the odrive command interface)
@@ -27,7 +27,7 @@ $ odrv0.clear_errors()
 $ odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
 $ odrv0.axis1.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
 ```
-Left and right wheel should start spinning after a beeping sound. 
+The left and right wheels should start spinning after a beeping sound. 
 Make sure they are spinning freely.
 ```python
 # Check if there are any errors. There shouldn't be any. 
@@ -49,7 +49,7 @@ $ git checkout dancerobot
 $ cd ~/dancebot_ws
 $ rm -r build/ install/ log/ # remove previously built packages, start with a clean start
 $ colcon build --symlink-install 
-# the symlink-install flag prevents rebuilding the package every time we make a small edits. 
+# The symlink-install flag prevents rebuilding the package every time we make a small edit. 
 $ source install/setup.bash
 ```
 
@@ -60,15 +60,15 @@ source ~/dancebot_ws/install/setup.bash
 ```bash
 ros2 launch dance_manager dance_server_launch.py
 ```
-### Start mobile base (ros starts to communicate with ODrive)
+### Start mobile base (ROS starts to communicate with ODrive)
 ```bash
 ros2 launch mobile_robot_control mobile_robot_launch.py
 ```
 
-Now, the robot starts listening to command to follow! You can test it with the following command:
+Now, the robot starts listening to the command to follow! You can test it with the following command:
 ```bash
 ros2 action send_goal /dance dance_interfaces/action/Dance '{"dance_move":"ZigZaggingForward"}'
 ```
 The robot should start walking forward.
 
-To add more moves, checkout docs/dance_manager.md
+To add more moves, check out docs/dance_manager.md
