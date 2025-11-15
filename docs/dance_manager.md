@@ -1,6 +1,6 @@
 # dance_manager — Documentation
 
-This document provides a deeper look at the `dance_manager` package: its purpose, components, example workflows and development notes.
+This document provides a deeper look at the `dance_manager` package: its purpose, components, example workflows, and development notes.
 
 ## Overview
 
@@ -8,10 +8,10 @@ This document provides a deeper look at the `dance_manager` package: its purpose
 
 Where to look in the source tree
 
-- `dance_manager/dance_manager/dance_server.py` — main action server logic and orchestration.
-- `dance_manager/dance_manager/dance_client.py` — helper client code for sending goals and handling feedback.
-- `dance_manager/dance_manager/dance_moves.py` — pre-defined moves and composition helpers.
-- `dance_manager/launch/dance_server_launch.py` — example launch description that starts the server node.
+- `dance_manager/dance_manager/dance_server.py` — main action server logic and orchestration, waiting for the client to send moves.
+- `dance_manager/dance_manager/dance_client.py` — helper client code for sending a series of dance moves and handling feedback.
+- `dance_manager/dance_manager/dance_moves.py` — pre-defined moves, mostly to keep the workspace organized. Can think of it as the library of dance moves.
+- `dance_manager/launch/dance_server_launch.py` — launch file that starts the server node defined in dance_server.py.
 
 ## Adding new dance moves
 
