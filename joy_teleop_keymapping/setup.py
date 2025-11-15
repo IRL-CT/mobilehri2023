@@ -20,7 +20,6 @@ setup(
     maintainer_email='fb266@cornell.edu',
     description='TODO: Package description',
     license='TODO: License declaration',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'keymapping_node = joy_teleop_keymapping.keymapping_node:main'

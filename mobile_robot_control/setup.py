@@ -21,7 +21,6 @@ setup(
     maintainer_email='fb266@cornell.edu',
     description='TODO: Package description',
     license='TODO: License declaration',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'mobile_robot_control_node = mobile_robot_control.mobile_robot_control_node:main'

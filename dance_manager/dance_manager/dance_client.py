@@ -58,9 +58,13 @@ def main(args=None):
     action_client = DanceActionClient()
     
     # Send goals using the improved method
-    print("Sending first goal...")
-    success1 = action_client.send_goal_and_wait("ZigZaggingForward")
+    print("Sending first move...")
+    success1 = action_client.send_goal_and_wait("InchForward")
     print(f"First goal completed: {success1}")
+
+    print("Sending second move...")
+    success2 = action_client.send_goal_and_wait("ZigZaggingForward")
+    print(f"second goal completed: {success2}")
     
     action_client.destroy_node()
     rclpy.shutdown()
