@@ -69,8 +69,10 @@ def inch_forward(twist_pub):
  - In `dance_server.py`, the `dance_server` selects moves by name (the action goal field `dance_move`). In the current implementation, this mapping is an inline dictionary inside `execute_callback` named `dance_moves`:
 
 ```python
+# import implemented function here
 from dance_manager.dance_moves import inch_forward, inch_backward, tap_on_side, zigzagging_forward
 ...
+# register the function below. You must pass self.twist_pub, the publisher that communicate with the robot. You can pass other parameters as defined by the function. Look at TapOnLeft and TapOnRight for example.
 dance_moves = {
     "InchForward": lambda: inch_forward(self.twist_pub),
     "InchBackward": lambda: inch_backward(self.twist_pub),
@@ -78,6 +80,7 @@ dance_moves = {
     "TapOnRight": lambda: tap_on_side(self.twist_pub, side="right"),
     "ZigZaggingForward": lambda: zigzagging_forward(self.twist_pub)
 }
+# The string will be the name you use to send commands from the client side.
 ```
 
  - To add a new move, implement the function in `dance_moves.py`, import it at the top of `dance_server.py`, then append a new key/value pair to this `dance_moves` dictionary (e.g. `"Spin": lambda: spin(self.twist_pub)`). Keeping the mapping in one place ensures discoverability.
