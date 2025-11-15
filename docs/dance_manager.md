@@ -21,17 +21,17 @@ Where to look in the source tree
 >
 > Register the new move function in `dance_server.py` and give it a name
 >
-> Envoke it through dance client or CLI.
+> Envoke it through the dance client or CLI.
 
 If you want to add new dance moves (new named behaviours that the `dance_server` can execute), follow these steps. The package keeps move implementations and choreography helpers in `dance_manager/dance_manager/dance_moves.py`.
 
 1) Implement the move
 
- - Open `dance_manager/dance_manager/dance_moves.py` and add a new function that performs the motion. Keep the interface simple: accept any parameters you need (for example `duration`, `speed`) and return a small status object or raise an exception on failure.
+ - Open `dance_manager/dance_manager/dance_moves.py` and add a new function that performs the motion. Keep the interface simple: accept any parameters you need (for example, `duration`, `speed`) and return a small status object or raise an exception on failure.
 
-Requirements on this function:
+Requirements for this function:
 - The function must take `twist_pub` as an input, with arbitrary other input parameters. The twist_pub will be used to publish commands to the robot
-- The robot is differential-drive, which means it takes twist command. It only reads two numbers from the twist command, `t.linear.x` and `t.angular.z`, which represents linear velocity and angular velocity, respectively. 
+- The robot is differential-drive, which means it takes a twist command. It only reads two numbers from the twist command, `t.linear.x` and `t.angular.z`, which represent linear velocity and angular velocity, respectively. 
 
 Example:
 
@@ -52,9 +52,9 @@ def inch_forward(twist_pub):
     t = Twist() # Initialize a twist message with all elements equal to zero.
     start = time.time()
     while time.time() <= start + 1:
-        t.linear.x = time.time() - start # We set linear velocity to be proportional to time elapsed, since the robot accelerate forward
+        t.linear.x = time.time() - start # We set linear velocity to be proportional to time elapsed, since the robot accelerates forward
         twist_pub.publish(t) # We send the command to the robot
-        time.sleep(0.1) # Use a sleep here to control the publishing frequency, value ranging from 0.05 to 0.1 are all acceptable. Do not affect performance.
+        time.sleep(0.1) # Use a sleep here to control the publishing frequency, values ranging from 0.05 to 0.1 are all acceptable. Do not affect performance.
     start = time.time()
     while time.time() <= start + 0.5:
         t.linear.x = 1 - (time.time() - start) * 2 # We decrease the speed, the robot decelerates.
@@ -66,7 +66,7 @@ def inch_forward(twist_pub):
 
 2) Register the name the server expects
 
- - In `dance_server.py`, the `dance_server` selects moves by name (the action goal field `dance_move`). In the current implementation this mapping is an inline dictionary inside `execute_callback` named `dance_moves`:
+ - In `dance_server.py`, the `dance_server` selects moves by name (the action goal field `dance_move`). In the current implementation, this mapping is an inline dictionary inside `execute_callback` named `dance_moves`:
 
 ```python
 from dance_manager.dance_moves import inch_forward, inch_backward, tap_on_side, zigzagging_forward
