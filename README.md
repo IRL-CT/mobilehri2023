@@ -7,7 +7,7 @@ Code base for robot chair dance 2025
 username: dancerobot
 password: far1@FAR
 ```
-2. Power on ODrive, and connect the hoverboard battery to the ODrive board.
+2. Power on ODrive by connecting the hoverboard battery to the ODrive board.
 3. ODrive Calibration:
 - Make sure both wheels are off the ground and free to spin. (Put a book or a brick under the chassis).
 - Open a terminal
