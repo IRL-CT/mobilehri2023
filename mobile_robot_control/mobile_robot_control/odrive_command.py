@@ -2,6 +2,7 @@ import math
 import rclpy
 import odrive
 import tf2_ros
+import time
 # import std_srvs.srv
 from rclpy.node import Node
 from odrive.enums import *
@@ -16,8 +17,8 @@ class odrive_command(Node):
         self.odrv = odrive.find_any()
         self.axis0=self.odrv.axis0
         self.axis1=self.odrv.axis1
-        self.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-        self.axis1.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+        self.axis0.requested_state = AxisState.CLOSED_LOOP_CONTROL
+        self.axis1.requested_state = AxisState.CLOSED_LOOP_CONTROL
 
         # self.axis0.config.enable_watchdog = True
         # self.axis1.config.enable_watchdog = True

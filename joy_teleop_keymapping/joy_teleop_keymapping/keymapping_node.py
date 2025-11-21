@@ -9,7 +9,7 @@ class TeleopTwistJoy(Node):
     def __init__(self):
         super().__init__('Teleop_Keymapping_node')
         self.joy_sub = self.create_subscription(Joy, '/joy', self.joyCallback, 10)
-        self.twist_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.twist_pub = self.create_publisher(Twist, '/teleop/cmd_vel', 10)
         self.max_linear_speed = 4
         self.max_angular_speed = 10
 
