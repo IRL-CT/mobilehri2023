@@ -20,7 +20,7 @@ Extending
   and side-effect free except for publishing Twist. For higher-level choreography,
   compose these primitives in the server logic.
 """
-import time
+import time, math
 from geometry_msgs.msg import Twist
 
 def abs_brake(twist_pub, direction, brake_times=10, pause_duration=0.05):
@@ -61,13 +61,15 @@ def inch_forward(twist_pub):
     """
     t = Twist()
     start = time.time()
-    while time.time() <= start + 1:
-        t.linear.x = time.time() - start
+    # ramp up over 0.5s
+    while time.time() <= start + 0.5:
+        t.linear.x = 2.0 * (time.time() - start)  # scale to reach 1.0 in 0.5s
         twist_pub.publish(t)
         time.sleep(0.1)
     start = time.time()
-    while time.time() <= start + 0.5:
-        t.linear.x = 1 - (time.time() - start) * 2
+    # ramp down over 0.25s
+    while time.time() <= start + 0.25:
+        t.linear.x = 1 - 4.0 * (time.time() - start)  # scale to go from 1.0 to 0.0 in 0.25s
         twist_pub.publish(t)
         time.sleep(0.05)
 
@@ -87,14 +89,14 @@ def inch_backward(twist_pub):
     """
     t = Twist()
     start = time.time()
-    while time.time() <= start + 1:
-        t.linear.x = -(time.time() - start)
+    while time.time() <= start + 0.5:
+        t.linear.x = -2.0 * (time.time() - start)
         twist_pub.publish(t)
         time.sleep(0.1)
     
     start = time.time()
-    while time.time() <= start + 0.5:
-        t.linear.x = -1 * (1 - (time.time() - start) * 2)
+    while time.time() <= start + 0.25:
+        t.linear.x = -1 * (1 - 4.0 * (time.time() - start))
         twist_pub.publish(t)
         time.sleep(0.05)
 
@@ -164,15 +166,16 @@ def tap_on_side(
         abs_brake(twist_pub, direction=1)
 
 
-def zigzagging_forward(
+def zigzag(
     twist_pub, 
+    direction="forward",   # "forward" or "backward"
     turns=1,
     tap_duration=0.5,     # seconds per stroke (forward or backward)
     v_mag=0.40,           # m/s linear speed of the moving wheel
     track=0.51,           # meters; distance between wheels
     cmd_dt=0.05           # command period
 ):
-    """Advance forward while alternating left/right arcs (zig-zag pattern).
+    """Advance forward or backward while alternating left/right arcs (zig-zag pattern).
 
     The robot performs alternating arcs by commanding differential velocities
     that approximate pivoting about one wheel then the other, creating a
@@ -180,6 +183,7 @@ def zigzagging_forward(
 
     Args:
         twist_pub: ROS 2 publisher for Twist messages.
+        direction (str): "forward" or "backward" - direction of zigzag motion.
         turns (int): number of left/right arc pairs to perform.
         tap_duration (float): seconds for each arc.
         v_mag (float): base magnitude used to compute v and w.
@@ -190,9 +194,19 @@ def zigzagging_forward(
         None
     """
     t = Twist()
+    
+    # Determine direction multiplier
+    if direction.lower() == "forward":
+        dir_multiplier = 1
+        brake_direction = -1
+    elif direction.lower() == "backward":
+        dir_multiplier = -1
+        brake_direction = 1
+    else:
+        raise ValueError("direction must be 'forward' or 'backward'")
 
-    def left_feet_forward(duration):
-        v = 0.5 * v_mag
+    def left_arc(duration):
+        v = 0.5 * v_mag * dir_multiplier
         w = -v_mag / track
         
         end = time.time() + duration
@@ -202,9 +216,9 @@ def zigzagging_forward(
             twist_pub.publish(t)
             time.sleep(cmd_dt)
 
-    def right_feet_forward(duration):
-        v = 0.5 * v_mag
-        w =  v_mag / track
+    def right_arc(duration):
+        v = 0.5 * v_mag * dir_multiplier
+        w = v_mag / track
         
         end = time.time() + duration
         while time.time() < end:
@@ -213,19 +227,58 @@ def zigzagging_forward(
             twist_pub.publish(t)
             time.sleep(cmd_dt)
 
-    # Perform tap motions
+    # Perform zigzag motions
     for _ in range(turns):
-        # forward stroke
-        left_feet_forward(tap_duration)
-        abs_brake(twist_pub, direction=-1)
+        # Left arc
+        left_arc(tap_duration)
+        abs_brake(twist_pub, direction=brake_direction)
 
-        # backward stroke
-        right_feet_forward(tap_duration)
-        abs_brake(twist_pub, direction=-1)
+        # Right arc
+        right_arc(tap_duration)
+        abs_brake(twist_pub, direction=brake_direction)
+
+def pivot(twist_pub, side="left", spin_duration=12.0, track=0.51, cmd_dt=0.05):
+    """Pivot the robot around one wheel (left or right) for a full 360° turn.
+
+    This commands a center linear velocity and an angular velocity such that the
+    robot's center describes a circle around the stationary wheel. The motion
+    completes one full rotation in ``spin_duration`` seconds.
+
+    Args:
+        twist_pub: ROS 2 publisher for geometry_msgs.msg.Twist
+        side (str): "left" or "right" — which wheel remains (approximately) fixed
+        spin_duration (float): seconds to complete 360 degrees
+        track (float): distance between wheels [m]
+        cmd_dt (float): command period [s]
+    """
+    t = Twist()
+
+    if side.lower() == "left":
+        w_sign = 1.0
+    elif side.lower() == "right":
+        w_sign = -1.0
+    else:
+        raise ValueError("side must be 'left' or 'right'")
+
+    # angular speed to complete 2*pi radians in spin_duration
+    w_target = 2.0 * math.pi / float(spin_duration)
+
+    # linear speed of the robot center so it pivots about the wheel at radius = track/2
+    v_center = w_target * (track / 2.0)
+
+    end = time.time() + float(spin_duration)
+    while time.time() < end:
+        t.linear.x = v_center
+        t.angular.z = w_sign * w_target
+        twist_pub.publish(t)
+        time.sleep(cmd_dt)
+
+    # small brake pulses to settle linear motion
+    abs_brake(twist_pub, direction=-1)
+        
 
 # Simple roll
 # Pivoting 
-# zigzaggingforward and backwards
 # Sweeping with pause (left and right) the looking
 # Slalom (front and back)
 # Spinning in place 

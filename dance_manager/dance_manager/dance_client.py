@@ -62,9 +62,13 @@ def main(args=None):
     success1 = action_client.send_goal_and_wait("InchForward")
     print(f"First goal completed: {success1}")
 
-    print("Sending second move...")
-    success2 = action_client.send_goal_and_wait("ZigZaggingForward")
-    print(f"second goal completed: {success2}")
+    action_client.send_goal_and_wait("InchBackward")
+    action_client.send_goal_and_wait("ZigZaggingForward")
+    action_client.send_goal_and_wait("ZigZaggingForward")
+    action_client.send_goal_and_wait("TapOnLeft")
+    action_client.send_goal_and_wait("TapOnRight")
+    action_client.send_goal_and_wait("ZigZaggingBackward")
+    action_client.send_goal_and_wait("ZigZaggingBackward")
     
     action_client.destroy_node()
     rclpy.shutdown()
