@@ -10,6 +10,8 @@ password: far1@FAR
 2. Power on ODrive by connecting the hoverboard battery to the ODrive board.
 3. ODrive Calibration:
 - Make sure both wheels are off the ground and free to spin. (Put a book or a brick under the chassis).
+
+- UPDATE (Nov 21st): I added a calibration script `startup_calibration.py`. You can just run that script and jump to next module.
 - Open a terminal
 ```bash
 $ odrivetool #(enter the odrive command interface)
