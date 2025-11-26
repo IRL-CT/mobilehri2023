@@ -18,7 +18,7 @@ class DanceActionServer(Node):
             Dance,
             'dance',
             self.execute_callback)
-        self.twist_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.twist_pub = self.create_publisher(Twist, '/dance_manager/cmd_vel', 10)
         
         # Flag to track if an action is currently executing
         self.action_active = False

@@ -1,14 +1,11 @@
 twist_mux:
   ros__parameters:
     topics:
-      - name: teleop
-        topic: /teleop/cmd_vel
-        timeout: 0.5          # seconds before this source is considered stale
-        priority: 90
-        short_desc: "Joystick"
-
-      - name: dance_manager
-        topic: /dance_manager/cmd_vel
-        timeout: 0.5
-        priority: 50
-        short_desc: "Dance Manager"
+      teleop:
+        topic   : /teleop/cmd_vel
+        timeout : 0.1
+        priority: 100
+      dance_manager:
+        topic   : /dance_manager/cmd_vel
+        timeout : 0.1
+        priority: 10
