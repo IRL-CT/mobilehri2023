@@ -32,7 +32,6 @@ def generate_launch_description():
             output='screen',
             parameters=[cfg],
             remappings=[('cmd_vel_out', '/cmd_vel')],
-
         )
 
     return LaunchDescription([
