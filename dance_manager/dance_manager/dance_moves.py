@@ -56,7 +56,18 @@ def greeting(
             t.angular.z = speed
             twist_pub.publish(t)
             time.sleep(cmd_dt)
+        
         # Stop rotation
+        t.angular.z = 0.0
+        twist_pub.publish(t)
+
+        # Rotational brake (similar to abs_brake but for angular.z)
+        brake_sign = -1.0 if speed > 0 else 1.0
+        for _ in range(5):
+            t.angular.z = brake_sign * 0.2
+            twist_pub.publish(t)
+            time.sleep(0.05)
+        
         t.angular.z = 0.0
         twist_pub.publish(t)
 
