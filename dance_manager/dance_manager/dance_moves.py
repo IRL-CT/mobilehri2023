@@ -23,7 +23,57 @@ Extending
 import time, math
 from geometry_msgs.msg import Twist
 
-def abs_brake(twist_pub, direction, brake_times=10, pause_duration=0.05):
+def greeting(
+    twist_pub,
+    turn_duration=1.0,
+    pause_duration=1.0,
+    cmd_dt=0.05
+):
+    """Look left, then right, then center (greeting gesture).
+
+    Sequence:
+    1. Turn Left ~45 deg
+    2. Pause
+    3. Turn Right ~90 deg (to 45 deg Right)
+    4. Pause
+    5. Turn Left ~45 deg (to Center)
+
+    Args:
+        twist_pub: ROS 2 publisher.
+        turn_duration (float): Time to complete a 45 degree turn.
+        pause_duration (float): Time to wait between turns.
+        cmd_dt (float): Command period.
+    """
+    t = Twist()
+    
+    # 45 degrees = pi/4 radians
+    target_angle = math.pi / 4.0
+    w = target_angle / turn_duration  # rad/s
+
+    def perform_turn(speed, duration):
+        end = time.time() + duration
+        while time.time() < end:
+            t.angular.z = speed
+            twist_pub.publish(t)
+            time.sleep(cmd_dt)
+        # Stop rotation
+        t.angular.z = 0.0
+        twist_pub.publish(t)
+
+    # 1. Turn Left 45 deg
+    perform_turn(w, turn_duration)
+    time.sleep(pause_duration)
+
+    # 2. Turn Right 90 deg (2 * 45 deg)
+    # We use same angular speed, so double the duration
+    perform_turn(-w, 2.0 * turn_duration)
+    time.sleep(pause_duration)
+
+    # 3. Recenter (Turn Left 45 deg)
+    perform_turn(w, turn_duration)
+    time.sleep(pause_duration)
+
+def abs_brake(twist_pub, direction, brake_times=5, pause_duration=0.05):
     """Pulse a small opposite linear command to quickly damp motion.
 
     This mimics an anti-lock braking (ABS) effect by publishing a small linear.x
@@ -106,9 +156,9 @@ def tap_on_side(
     twist_pub,
     side="left",          # "left" or "right"
     tap_times=1,
-    tap_duration=0.5,     # seconds per stroke (forward or backward)
+    tap_duration=0.25,     # seconds per stroke (forward or backward)
     v_mag=0.40,           # m/s linear speed of the moving wheel
-    track=0.51,           # meters; distance between wheels
+    track=0.6,           # meters; distance between wheels
     cmd_dt=0.05           # command period
 ):
     """Tap on one wheel while the other stays fixed, producing a pivot motion.
@@ -169,10 +219,10 @@ def tap_on_side(
 def zigzag(
     twist_pub, 
     direction="forward",   # "forward" or "backward"
-    turns=1,
+    turns=4,
     tap_duration=0.5,     # seconds per stroke (forward or backward)
     v_mag=0.40,           # m/s linear speed of the moving wheel
-    track=0.51,           # meters; distance between wheels
+    track=0.6,           # meters; distance between wheels
     cmd_dt=0.05           # command period
 ):
     """Advance forward or backward while alternating left/right arcs (zig-zag pattern).
@@ -228,16 +278,29 @@ def zigzag(
             time.sleep(cmd_dt)
 
     # Perform zigzag motions
-    for _ in range(turns):
-        # Left arc
-        left_arc(tap_duration)
+    # Sequence: Half-Left -> Full-Right -> [Full-Left -> Full-Right]* -> Half-Left
+    if turns > 0:
+        # Initial half arc to start from center
+        left_arc(tap_duration / 2.0)
         abs_brake(twist_pub, direction=brake_direction)
 
-        # Right arc
+        # First full opposite arc
         right_arc(tap_duration)
         abs_brake(twist_pub, direction=brake_direction)
 
-def pivot(twist_pub, side="left", spin_duration=12.0, track=0.51, cmd_dt=0.05):
+        # Remaining full cycles
+        for _ in range(turns - 1):
+            left_arc(tap_duration)
+            abs_brake(twist_pub, direction=brake_direction)
+
+            right_arc(tap_duration)
+            abs_brake(twist_pub, direction=brake_direction)
+
+        # Final half arc to return to center
+        left_arc(tap_duration / 2.0)
+        abs_brake(twist_pub, direction=brake_direction)
+
+def pirouette(twist_pub, side="left", spin_duration=3.0, track=0.60, cmd_dt=0.05):
     """Pivot the robot around one wheel (left or right) for a full 360° turn.
 
     This commands a center linear velocity and an angular velocity such that the
@@ -280,9 +343,9 @@ def pivot(twist_pub, side="left", spin_duration=12.0, track=0.51, cmd_dt=0.05):
 def slalom(
     twist_pub,
     direction="forward",
-    duration=5.0,
-    linear_speed=0.3,
-    oscillation_amp=0.8,
+    duration=4.0,
+    linear_speed=0.5,
+    oscillation_amp=1.2,
     frequency=0.5,
     cmd_dt=0.05
 ):
@@ -324,9 +387,10 @@ def slalom(
         # Constant linear motion
         t.linear.x = linear_speed * lin_sign
         
-        # Sinusoidal angular motion: w = A * sin(2*pi*f*t)
-        # Integral of sin(t) over full periods is 0 -> 0 net rotation
-        t.angular.z = oscillation_amp * math.sin(2 * math.pi * frequency * elapsed)
+        # Sinusoidal angular motion: w = A * cos(2*pi*f*t)
+        # Integral of cos(t) over full periods is 0 -> 0 net rotation
+        # Using cos instead of sin makes the heading oscillate symmetrically around 0
+        t.angular.z = oscillation_amp * math.cos(2 * math.pi * frequency * elapsed)
         
         twist_pub.publish(t)
         time.sleep(cmd_dt)
@@ -338,7 +402,6 @@ def slalom(
     
     # Quick brake to kill momentum
     abs_brake(twist_pub, direction=-lin_sign)
-
 
 # Simple roll
 # Pivoting 

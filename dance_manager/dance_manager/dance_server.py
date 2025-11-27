@@ -37,14 +37,15 @@ class DanceActionServer(Node):
 
         # Dictionary-based switch for dance moves
         dance_moves = {
+            "Greeting": lambda: greeting(self.twist_pub),
             "InchForward": lambda: inch_forward(self.twist_pub),
             "InchBackward": lambda: inch_backward(self.twist_pub),
             "TapOnLeft": lambda: tap_on_side(self.twist_pub, side="left"),
             "TapOnRight": lambda: tap_on_side(self.twist_pub, side="right"),
             "ZigZaggingForward": lambda: zigzag(self.twist_pub, direction="forward"),
             "ZigZaggingBackward": lambda: zigzag(self.twist_pub, direction="backward"),
-            "PivotLeft": lambda: pivot(self.twist_pub, side="left"),
-            "PivotRight": lambda: pivot(self.twist_pub, side="right"),
+            "PirouetteLeft": lambda: pirouette(self.twist_pub, side="left"),
+            "PirouetteRight": lambda: pirouette(self.twist_pub, side="right"),
             "SlalomForward": lambda: slalom(self.twist_pub, direction="forward"),
             "SlalomBackward": lambda: slalom(self.twist_pub, direction="backward")
         }

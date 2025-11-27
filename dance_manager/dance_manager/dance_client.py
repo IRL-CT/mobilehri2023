@@ -57,17 +57,23 @@ def main(args=None):
 
     action_client = DanceActionClient()
     
-    # Send goals using the improved method
-    print("Sending first move...")
-    success1 = action_client.send_goal_and_wait("InchForward")
-    print(f"First goal completed: {success1}")
+    # Greeting (6 seconds)
+    action_client.send_goal_and_wait("Greeting")
 
-    action_client.send_goal_and_wait("InchBackward")
-    action_client.send_goal_and_wait("ZigZaggingForward")
-    action_client.send_goal_and_wait("ZigZaggingForward")
-    action_client.send_goal_and_wait("TapOnLeft")
-    action_client.send_goal_and_wait("TapOnRight")
-    action_client.send_goal_and_wait("ZigZaggingBackward")
+    # Tap 4 times (4 seconds)
+    for _ in range(4):
+        action_client.send_goal_and_wait("TapOnRight")
+    
+    # Slalom backward (4 seconds)
+    action_client.send_goal_and_wait("SlalomBackward")
+    
+    # Pirouette left (3 seconds)
+    action_client.send_goal_and_wait("PirouetteLeft")
+
+    # Slalom forward (4 seconds)
+    action_client.send_goal_and_wait("SlalomForward")
+
+    # Slalom backward (4 seconds)
     action_client.send_goal_and_wait("ZigZaggingBackward")
     
     action_client.destroy_node()
