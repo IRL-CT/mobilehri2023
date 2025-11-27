@@ -275,7 +275,70 @@ def pivot(twist_pub, side="left", spin_duration=12.0, track=0.51, cmd_dt=0.05):
 
     # small brake pulses to settle linear motion
     abs_brake(twist_pub, direction=-1)
+
+
+def slalom(
+    twist_pub,
+    direction="forward",
+    duration=5.0,
+    linear_speed=0.3,
+    oscillation_amp=0.8,
+    frequency=0.5,
+    cmd_dt=0.05
+):
+    """Move continuously while weaving side-to-side in a sine-wave pattern.
+
+    Adjusts the actual duration to be an integer multiple of the oscillation period
+    so that the net rotation is zero (robot ends facing the same way it started).
+
+    Args:
+        twist_pub: ROS 2 publisher for Twist messages.
+        direction (str): "forward" or "backward".
+        duration (float): Approximate total duration [s].
+        linear_speed (float): Constant linear speed [m/s].
+        oscillation_amp (float): Maximum angular velocity [rad/s].
+        frequency (float): How fast to weave left/right [Hz].
+        cmd_dt (float): Command period [s].
+    """
+    t = Twist()
+    
+    if direction.lower() == "forward":
+        lin_sign = 1.0
+    elif direction.lower() == "backward":
+        lin_sign = -1.0
+    else:
+        raise ValueError("direction must be 'forward' or 'backward'")
+
+    # Enforce full cycles to ensure zero net rotation
+    # Period T = 1/f. We want duration = k * T where k is an integer.
+    period = 1.0 / frequency
+    num_cycles = max(1, round(duration / period))
+    actual_duration = num_cycles * period
+    
+    start_time = time.time()
+    end_time = start_time + actual_duration
+    
+    while time.time() < end_time:
+        elapsed = time.time() - start_time
         
+        # Constant linear motion
+        t.linear.x = linear_speed * lin_sign
+        
+        # Sinusoidal angular motion: w = A * sin(2*pi*f*t)
+        # Integral of sin(t) over full periods is 0 -> 0 net rotation
+        t.angular.z = oscillation_amp * math.sin(2 * math.pi * frequency * elapsed)
+        
+        twist_pub.publish(t)
+        time.sleep(cmd_dt)
+
+    # Stop cleanly
+    t.linear.x = 0.0
+    t.angular.z = 0.0
+    twist_pub.publish(t)
+    
+    # Quick brake to kill momentum
+    abs_brake(twist_pub, direction=-lin_sign)
+
 
 # Simple roll
 # Pivoting 

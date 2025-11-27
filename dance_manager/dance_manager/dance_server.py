@@ -6,7 +6,7 @@ from rclpy.node import Node
 
 from geometry_msgs.msg import Twist
 from dance_interfaces.action import Dance
-from dance_manager.dance_moves import inch_forward, inch_backward, tap_on_side, zigzag, pivot
+from dance_manager.dance_moves import *
 
 
 class DanceActionServer(Node):
@@ -45,6 +45,8 @@ class DanceActionServer(Node):
             "ZigZaggingBackward": lambda: zigzag(self.twist_pub, direction="backward"),
             "PivotLeft": lambda: pivot(self.twist_pub, side="left"),
             "PivotRight": lambda: pivot(self.twist_pub, side="right"),
+            "SlalomForward": lambda: slalom(self.twist_pub, direction="forward"),
+            "SlalomBackward": lambda: slalom(self.twist_pub, direction="backward")
         }
         
         # Execute the requested dance move
