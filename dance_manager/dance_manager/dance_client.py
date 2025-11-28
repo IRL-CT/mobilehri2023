@@ -73,8 +73,25 @@ def main(args=None):
     # Slalom forward (4 seconds)
     action_client.send_goal_and_wait("SlalomForward")
 
+    # Pirouette right (3 seconds)
+    action_client.send_goal_and_wait("PirouetteRight")
+
     # Slalom backward (4 seconds)
     action_client.send_goal_and_wait("ZigZaggingBackward")
+
+    # Teacup spin right (3 seconds)
+    action_client.send_goal_and_wait("TeacupSpinRight")
+
+    # Tap 4 times (4 seconds)
+    for _ in range(4):
+        action_client.send_goal_and_wait("TapOnRight")
+
+    # Teacup spin left (3 seconds)
+    action_client.send_goal_and_wait("TeacupSpinLeft")
+
+    # Tap 4 times (4 seconds)
+    for _ in range(4):
+        action_client.send_goal_and_wait("TapOnLeft")
     
     action_client.destroy_node()
     rclpy.shutdown()

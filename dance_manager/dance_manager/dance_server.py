@@ -47,7 +47,9 @@ class DanceActionServer(Node):
             "PirouetteLeft": lambda: pirouette(self.twist_pub, side="left"),
             "PirouetteRight": lambda: pirouette(self.twist_pub, side="right"),
             "SlalomForward": lambda: slalom(self.twist_pub, direction="forward"),
-            "SlalomBackward": lambda: slalom(self.twist_pub, direction="backward")
+            "SlalomBackward": lambda: slalom(self.twist_pub, direction="backward"),
+            "TeacupSpinRight": lambda: teacup_spin(self.twist_pub, side="right"),
+            "TeacupSpinLeft": lambda: teacup_spin(self.twist_pub, side="left")
         }
         
         # Execute the requested dance move

@@ -414,11 +414,61 @@ def slalom(
     # Quick brake to kill momentum
     abs_brake(twist_pub, direction=-lin_sign)
 
-# Simple roll
-# Pivoting 
-# Sweeping with pause (left and right) the looking
-# Slalom (front and back)
-# Spinning in place 
-# Spinning in one foot (front and back)
-# Free form skating around
-# Pacing or patrolling
+def teacup_spin(
+    twist_pub,
+    side="left",
+    duration=3.0,
+    track=0.6,
+    cmd_dt=0.05
+):
+    """Spin 360 degrees while displacing to the side (Disney teacup style).
+
+    The robot performs a full 360 rotation while varying its linear velocity.
+    This creates a spiral-like motion where the robot ends up laterally displaced
+    to the specified side, but facing the same direction.
+    Throughout the move, the wheels turn in opposite directions ("spinning"),
+    satisfying the constraint |v| < |w * track / 2|.
+
+    Args:
+        twist_pub: ROS 2 publisher.
+        side (str): "left" or "right" (direction of rotation and displacement).
+        duration (float): Total time for the 360 spin.
+        track (float): Track width.
+        cmd_dt (float): Command period.
+    """
+    t = Twist()
+
+    # Angular velocity for 360 deg in duration
+    w_mag = 2.0 * math.pi / duration
+    if side.lower() == "left":
+        w = w_mag
+    elif side.lower() == "right":
+        w = -w_mag
+    else:
+        raise ValueError("side must be 'left' or 'right'")
+
+    # Max linear speed to ensure we are always "spinning" (ICC between wheels)
+    # v_limit = w * track / 2. We use 90% to be safe and ensure opposite wheel velocities.
+    v_limit = 0.9 * w_mag * (track / 2.0)
+
+    # To move to the same side as the rotation (Left turn -> Left move, Right turn -> Right move),
+    # we need to decelerate from positive v to negative v.
+    v_start = v_limit
+    v_end = -v_limit
+
+    start_time = time.time()
+    end_time = start_time + duration
+
+    while time.time() < end_time:
+        now = time.time()
+        elapsed = now - start_time
+        progress = elapsed / duration
+        
+        # Linear ramp of linear velocity
+        current_v = v_start + (v_end - v_start) * progress
+        
+        t.linear.x = current_v
+        t.angular.z = w
+        twist_pub.publish(t)
+        time.sleep(cmd_dt)
+    abs_brake(twist_pub, direction=1)
