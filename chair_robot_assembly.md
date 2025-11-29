@@ -7,6 +7,8 @@ Assembly instructions
    
 3. Use 2 extruded aluminum t-slot rails across the flat side of the hoverboard chassis to create wider hoverboard chassis, using t-slot bolts and drop-in nuts.
 
-4. Attach the back boots (white 3d printed parts) on the hoverboard loosely, also suign the. (These can be tightened when you attach the chair legs into the boots, and can be adjusted the mounting to accommodate the chair width later). 
+4. Attach the back boots (white 3d printed parts) on the hoverboard loosely, also using the t-slot bolts and nuts.
+5. Attach the chair legs into the boots, and adjust the hoverboard assembly laterally to accommodate the chair width. Tighten everything 
 
+ 6. Attach front boots to front legs of chair. There is a set screw in back that you can use to secure the boots.
    
