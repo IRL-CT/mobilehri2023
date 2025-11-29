@@ -2,7 +2,7 @@ Assembly instructions
 
 1. Seperate two halves of hoverboard
     (this is only necessary to do if the width of the chair legs does not permit the hoverboard to stay intact)
-   ![](https://cdn.discordapp.com/attachments/833724371293306901/1444473393943679027/IMG_9062.jpg)
+   !(https://cdn.discordapp.com/attachments/833724371293306901/1444473393943679027/IMG_9062.jpg)
    Remove this clip on each side, pulling on the tip using pliers.
 
 2. Insert aluminum tubing across center of the hoverboard, to help keep the two halves of the hoverboard aligned. (This is not affixed, just pressed in.)
