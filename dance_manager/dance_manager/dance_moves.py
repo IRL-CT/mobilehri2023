@@ -107,36 +107,38 @@ def abs_brake(twist_pub, direction, brake_times=5, pause_duration=0.05):
         time.sleep(pause_duration)
 
 
-def inch_forward(twist_pub):
+def inch_forward(twist_pub, ramp_up_duration=0.5, ramp_down_duration=0.25):
     """Short forward "inch" motion: accelerate briefly, then decelerate.
 
     Generates a small forward movement by linearly ramping up ``linear.x`` over
-    ~1s, then ramping down over ~0.5s. Concludes with a brief braking pulse to
-    counter residual motion.
+    ``ramp_up_duration``, then ramping down over ``ramp_down_duration``. 
+    Concludes with a brief braking pulse to counter residual motion.
 
     Args:
         twist_pub: ROS 2 publisher for Twist messages.
+        ramp_up_duration (float): seconds to accelerate.
+        ramp_down_duration (float): seconds to decelerate.
 
     Returns:
         None
     """
     t = Twist()
     start = time.time()
-    # ramp up over 0.5s
-    while time.time() <= start + 0.5:
-        t.linear.x = 2.0 * (time.time() - start)  # scale to reach 1.0 in 0.5s
+    # ramp up
+    while time.time() <= start + ramp_up_duration:
+        t.linear.x = (1.0 / ramp_up_duration) * (time.time() - start)
         twist_pub.publish(t)
         time.sleep(0.1)
     start = time.time()
-    # ramp down over 0.25s
-    while time.time() <= start + 0.25:
-        t.linear.x = 1 - 4.0 * (time.time() - start)  # scale to go from 1.0 to 0.0 in 0.25s
+    # ramp down
+    while time.time() <= start + ramp_down_duration:
+        t.linear.x = 1.0 - (1.0 / ramp_down_duration) * (time.time() - start)
         twist_pub.publish(t)
         time.sleep(0.05)
 
     abs_brake(twist_pub, direction=-1)
 
-def inch_backward(twist_pub):
+def inch_backward(twist_pub, ramp_up_duration=0.5, ramp_down_duration=0.25):
     """Short backward "inch" motion: accelerate briefly, then decelerate.
 
     Like :func:`inch_forward` but mirrored in the negative x direction. Ends with
@@ -144,20 +146,23 @@ def inch_backward(twist_pub):
 
     Args:
         twist_pub: ROS 2 publisher for Twist messages.
+        ramp_up_duration (float): seconds to accelerate.
+        ramp_down_duration (float): seconds to decelerate.
 
     Returns:
         None
     """
     t = Twist()
     start = time.time()
-    while time.time() <= start + 0.5:
-        t.linear.x = -2.0 * (time.time() - start)
+    
+    while time.time() <= start + ramp_up_duration:
+        t.linear.x = -(1.0 / ramp_up_duration) * (time.time() - start)
         twist_pub.publish(t)
         time.sleep(0.1)
     
     start = time.time()
-    while time.time() <= start + 0.25:
-        t.linear.x = -1 * (1 - 4.0 * (time.time() - start))
+    while time.time() <= start + ramp_down_duration:
+        t.linear.x = -1.0 * (1.0 - (1.0 / ramp_down_duration) * (time.time() - start))
         twist_pub.publish(t)
         time.sleep(0.05)
 
@@ -472,3 +477,371 @@ def teacup_spin(
         twist_pub.publish(t)
         time.sleep(cmd_dt)
     abs_brake(twist_pub, direction=1)
+
+
+def spin_on_axis(
+    twist_pub,
+    rotations=1.0,
+    spin_duration=3.0,
+    clockwise=False,
+    cmd_dt=0.05
+):
+    """Spin the robot in-place about its center axis.
+
+    This primitive commands zero linear velocity and a constant angular
+    velocity so the robot rotates around its center. By default it completes
+    ``rotations`` full turns in ``spin_duration`` seconds.
+
+    Args:
+        twist_pub: ROS 2 publisher for geometry_msgs.msg.Twist
+        rotations (float): number of full 360° rotations to perform
+        spin_duration (float): total time to perform the rotations [s]
+        clockwise (bool): if True, rotate clockwise (negative angular.z)
+        cmd_dt (float): command period [s]
+    """
+    t = Twist()
+
+    if spin_duration <= 0 or rotations == 0:
+        return
+
+    # angular speed magnitude (rad/s) to complete `rotations` in spin_duration
+    w_mag = 2.0 * math.pi * float(rotations) / float(spin_duration)
+    w = -w_mag if clockwise else w_mag
+
+    end = time.time() + float(spin_duration)
+    while time.time() < end:
+        t.linear.x = 0.0
+        t.angular.z = w
+        twist_pub.publish(t)
+        time.sleep(cmd_dt)
+
+    # Stop rotation
+    t.angular.z = 0.0
+    twist_pub.publish(t)
+
+    # Small angular brake pulses to settle residual rotation
+    brake_sign = -1.0 if w > 0 else 1.0
+    for _ in range(5):
+        t.angular.z = brake_sign * 0.2
+        twist_pub.publish(t)
+        time.sleep(0.05)
+
+    t.angular.z = 0.0
+    twist_pub.publish(t)
+
+def spiral(
+    twist_pub,
+    duration=4.0,
+    linear_v=0.5,
+    start_w=0.1,
+    end_w=1.0,
+    turns=1.0,
+    direction="left",
+    cmd_dt=0.05
+):
+    """Smooth spiral motion by changing angular velocity over time.
+
+    The robot moves at a constant linear speed while the angular velocity
+    ramps linearly. The angular velocities are scaled so that the robot
+    completes exactly `turns` rotations in `duration`.
+
+    Args:
+        twist_pub: ROS 2 publisher for Twist messages.
+        duration (float): Total time for the spiral.
+        linear_v (float): Constant linear velocity [m/s].
+        start_w (float): Relative initial angular velocity.
+        end_w (float): Relative final angular velocity.
+        turns (float): Number of full rotations to complete.
+        direction (str): "left" or "right".
+        cmd_dt (float): Command period [s].
+    """
+    t = Twist()
+    start_time = time.time()
+    end_time = start_time + duration
+
+    # Calculate scaling to ensure exactly 'turns' rotations
+    # Average w * duration = 2 * pi * turns
+    required_avg_w = (2.0 * math.pi * abs(turns)) / duration
+    provided_avg = (start_w + end_w) / 2.0
+    
+    if abs(provided_avg) > 1e-6:
+        scale = required_avg_w / abs(provided_avg)
+        actual_start_w = abs(start_w) * scale
+        actual_end_w = abs(end_w) * scale
+    else:
+        # Fallback if provided average is zero
+        actual_start_w = required_avg_w
+        actual_end_w = required_avg_w
+
+    if direction.lower() == "right":
+        actual_start_w = -actual_start_w
+        actual_end_w = -actual_end_w
+
+    while time.time() < end_time:
+        elapsed = time.time() - start_time
+        progress = elapsed / duration
+        
+        # Linear interpolation of angular velocity
+        current_w = actual_start_w + (actual_end_w - actual_start_w) * progress
+        
+        t.linear.x = linear_v
+        t.angular.z = current_w
+        twist_pub.publish(t)
+        time.sleep(cmd_dt)
+
+    # Stop
+    t.linear.x = 0.0
+    t.angular.z = 0.0
+    twist_pub.publish(t)
+    
+    brake_dir = -1 if linear_v > 0 else 1
+    abs_brake(twist_pub, direction=brake_dir)
+
+def teacup(
+    twist_pub,
+    duration=15.0,
+    radius_orbit=0.5,
+    orbit_turns=1.0,
+    spin_turns=4.0,
+    direction="left",
+    cmd_dt=0.05
+):
+    """Perform a 'teacup' style move: alternate between driving an arc and spinning in place.
+    
+    This simulates the teacup ride by breaking the orbit into segments. In each segment,
+    the robot drives part of the circle, then stops to perform a full 360 degree spin.
+    
+    Args:
+        twist_pub: ROS 2 publisher.
+        duration (float): Total time.
+        radius_orbit (float): Radius of the main circle.
+        orbit_turns (float): Number of main circle orbits.
+        spin_turns (float): Number of spins to perform (should be integer).
+        direction (str): "left" or "right".
+        cmd_dt (float): Command period.
+    """
+    t = Twist()
+    
+    # Ensure integer number of spins for the loop logic
+    n_spins = max(1, int(round(spin_turns)))
+    
+    # Time allocation: 50% driving, 50% spinning
+    drive_ratio = 0.5
+    spin_ratio = 0.5
+    
+    time_per_segment = duration / n_spins
+    time_drive = time_per_segment * drive_ratio
+    time_spin = time_per_segment * spin_ratio
+    
+    # Arc parameters
+    # Total orbit angle
+    total_orbit_angle = 2.0 * math.pi * orbit_turns
+    angle_per_arc = total_orbit_angle / n_spins
+    
+    dir_sign = 1.0 if direction.lower() == "left" else -1.0
+    
+    w_arc = (angle_per_arc / time_drive) * dir_sign
+    v_arc = abs(w_arc * radius_orbit)
+    
+    # Spin parameters (1 full rotation per segment)
+    w_spin = (2.0 * math.pi / time_spin) * dir_sign
+    
+    for _ in range(n_spins):
+        # 1. Drive Arc
+        end_drive = time.time() + time_drive
+        while time.time() < end_drive:
+            t.linear.x = v_arc
+            t.angular.z = w_arc
+            twist_pub.publish(t)
+            time.sleep(cmd_dt)
+            
+        # 2. Spin in place
+        end_spin = time.time() + time_spin
+        while time.time() < end_spin:
+            t.linear.x = 0.0
+            t.angular.z = w_spin
+            twist_pub.publish(t)
+            time.sleep(cmd_dt)
+            
+    # Stop
+    t.linear.x = 0.0
+    t.angular.z = 0.0
+    twist_pub.publish(t)
+    abs_brake(twist_pub, direction=1)
+
+def figure_eight(
+    twist_pub,
+    radius=0.4,
+    duration=10.0,
+    turns=1.0,
+    cmd_dt=0.05
+):
+    """Drive a figure-eight pattern (two tangent circles).
+    
+    The robot drives one full circle to the left, then one full circle to the right.
+    This creates a smooth figure-eight shape tangent to the starting direction.
+    
+    Args:
+        twist_pub: ROS 2 publisher.
+        radius (float): Radius of each circle [m].
+        duration (float): Total duration for one full figure-eight (both circles) [s].
+        turns (float): Number of times to repeat the full figure-eight.
+        cmd_dt (float): Command period.
+    """
+    t = Twist()
+    
+    # Each figure eight is 2 circles.
+    # Total time per circle = duration / 2
+    # Speed v = 2*pi*R / (duration/2) = 4*pi*R / duration
+    # Angular w = v / R = 4*pi / duration
+    
+    # We want to execute 'turns' full figure eights.
+    # Total loops = turns * 2 (lefts and rights)
+    
+    full_cycles = int(turns)
+    # If turns is 1.5, we do Full 8 + Half 8 (one circle).
+    extra_half = (turns - full_cycles) >= 0.5
+    
+    # Duration for one circle
+    circle_duration = duration / 2.0
+    
+    w_mag = (2.0 * math.pi) / circle_duration
+    v_mag = w_mag * radius
+    
+    def drive_circle(direction):
+        w = w_mag if direction == "left" else -w_mag
+        end = time.time() + circle_duration
+        while time.time() < end:
+            t.linear.x = v_mag
+            t.angular.z = w
+            twist_pub.publish(t)
+            time.sleep(cmd_dt)
+
+    for _ in range(full_cycles):
+        drive_circle("left")
+        drive_circle("right")
+        
+    if extra_half:
+        drive_circle("left")
+        
+    # Stop
+    t.linear.x = 0.0
+    t.angular.z = 0.0
+    twist_pub.publish(t)
+    abs_brake(twist_pub, direction=-1)
+
+
+def flower(
+    twist_pub,
+    radius=0.8,
+    petals=2,
+    duration=20.0,
+    turns=1.0,
+    cmd_dt=0.05
+):
+    """Drive a flower pattern (Rose Curve).
+    
+    Uses the polar equation r = a * sin(k * theta) to generate a smooth,
+    petal-like path. The robot starts and ends at the center (if turns is integer).
+    
+    Args:
+        twist_pub: ROS 2 publisher.
+        radius (float): Approximate radius of the petals [m].
+        petals (int): Parameter k for the rose curve.
+                      k=2 produces 4 petals. k=3 produces 3 petals.
+        duration (float): Duration for one full cycle (2*pi radians).
+        turns (float): Number of full cycles to perform.
+        cmd_dt (float): Command period.
+    """
+    t_msg = Twist()
+    
+    # k parameter
+    k = float(petals)
+    
+    # Omega for the parameter theta (theta = omega * t)
+    # We want theta to go from 0 to 2*pi*turns in 'duration'
+    omega = (2.0 * math.pi * turns) / duration
+    
+    start_time = time.time()
+    end_time = start_time + duration
+    
+    while time.time() < end_time:
+        now = time.time() - start_time
+        theta = omega * now
+        
+        # Rose curve: r = R * sin(k * theta)
+        # x = r * cos(theta) = R * sin(k*theta) * cos(theta)
+        # y = r * sin(theta) = R * sin(k*theta) * sin(theta)
+        
+        # Derivatives
+        # dx/dt = dx/dtheta * dtheta/dt = dx/dtheta * omega
+        # dy/dt = dy/dtheta * dtheta/dt = dy/dtheta * omega
+        
+        # dx/dtheta = R * (k*cos(k*theta)*cos(theta) - sin(k*theta)*sin(theta))
+        dx_dtheta = radius * (k * math.cos(k*theta) * math.cos(theta) - math.sin(k*theta) * math.sin(theta))
+        
+        # dy/dtheta = R * (k*cos(k*theta)*sin(theta) + sin(k*theta)*cos(theta))
+        dy_dtheta = radius * (k * math.cos(k*theta) * math.sin(theta) + math.sin(k*theta) * math.cos(theta))
+        
+        vx = dx_dtheta * omega
+        vy = dy_dtheta * omega
+        
+        # Linear velocity v
+        v = math.sqrt(vx**2 + vy**2)
+        
+        # Angular velocity w
+        # Acceleration components (approximate or analytical)
+        # Analytical is better for smoothness.
+        # d2x/dt2 = d(vx)/dt = d(vx)/dtheta * omega
+        
+        # d(dx_dtheta)/dtheta:
+        # d/dtheta [ k*cos(kt)cos(t) - sin(kt)sin(t) ]
+        # = k [ -k sin(kt)cos(t) - cos(kt)sin(t) ] - [ k cos(kt)sin(t) + sin(kt)cos(t) ]
+        # = -k^2 sin(kt)cos(t) - k cos(kt)sin(t) - k cos(kt)sin(t) - sin(kt)cos(t)
+        # = -(k^2 + 1) sin(kt)cos(t) - 2k cos(kt)sin(t)
+        
+        d2x_dtheta2 = radius * ( -(k**2 + 1)*math.sin(k*theta)*math.cos(theta) - 2*k*math.cos(k*theta)*math.sin(theta) )
+        
+        # d(dy_dtheta)/dtheta:
+        # d/dtheta [ k*cos(kt)sin(t) + sin(kt)cos(t) ]
+        # = k [ -k sin(kt)sin(t) + cos(kt)cos(t) ] + [ k cos(kt)cos(t) - sin(kt)sin(t) ]
+        # = -k^2 sin(kt)sin(t) + k cos(kt)cos(t) + k cos(kt)cos(t) - sin(kt)sin(t)
+        # = -(k^2 + 1) sin(kt)sin(t) + 2k cos(kt)cos(t)
+        
+        d2y_dtheta2 = radius * ( -(k**2 + 1)*math.sin(k*theta)*math.sin(theta) + 2*k*math.cos(k*theta)*math.cos(theta) )
+        
+        ax = d2x_dtheta2 * (omega**2)
+        ay = d2y_dtheta2 * (omega**2)
+        
+        if v > 1e-4:
+            w_robot = (vx * ay - vy * ax) / (v**2)
+        else:
+            # At the center (cusp), velocity drops to zero.
+            # We need to turn in place or handle the singularity.
+            # For Rose curve at origin, it passes through smoothly if we allow negative velocity?
+            # But differential drive usually assumes v > 0 for forward.
+            # If v < 0, we reverse.
+            # The math above gives signed v? No, sqrt is positive.
+            # We need to check direction of motion relative to heading.
+            # But this is open loop Twist. We define v and w.
+            # If the path requires reversing, we should output negative v.
+            # However, Rose curve x,y trace is continuous.
+            # The robot heading is tangent to the curve.
+            # If the curve passes through origin, the tangent flips 180 degrees?
+            # r = sin(2 theta). At theta=0, r=0, dr/dtheta > 0.
+            # At theta=pi/2, r=0, dr/dtheta < 0.
+            # The robot comes back to center and goes out the other way.
+            # This implies crossing the origin.
+            # With v > 0, we would just keep driving forward.
+            w_robot = 0.0
+
+        t_msg.linear.x = v
+        t_msg.angular.z = w_robot
+        twist_pub.publish(t_msg)
+        time.sleep(cmd_dt)
+
+    # Stop
+    t_msg.linear.x = 0.0
+    t_msg.angular.z = 0.0
+    twist_pub.publish(t_msg)
+    abs_brake(twist_pub, direction=-1)

@@ -49,7 +49,15 @@ class DanceActionServer(Node):
             "SlalomForward": lambda: slalom(self.twist_pub, direction="forward"),
             "SlalomBackward": lambda: slalom(self.twist_pub, direction="backward"),
             "TeacupSpinRight": lambda: teacup_spin(self.twist_pub, side="right"),
-            "TeacupSpinLeft": lambda: teacup_spin(self.twist_pub, side="left")
+            "TeacupSpinLeft": lambda: teacup_spin(self.twist_pub, side="left"),
+            "SpinClockwise": lambda: spin_on_axis(self.twist_pub, clockwise=True),
+            "SpinCounterClockwise": lambda: spin_on_axis(self.twist_pub, clockwise=False),
+            "SpiralLeft": lambda: spiral(self.twist_pub, direction="left"),
+            "SpiralRight": lambda: spiral(self.twist_pub, direction="right"),
+            "TeacupCircleLeft": lambda: teacup(self.twist_pub),
+            "TeacupCircleRight": lambda: teacup(self.twist_pub, direction="right"),
+            "FigureEight": lambda: figure_eight(self.twist_pub),
+            "FlowerDance": lambda: flower(self.twist_pub),
         }
         
         # Execute the requested dance move
