@@ -28,7 +28,9 @@ setup(
     entry_points={
         'console_scripts': [
             'dance_action_server = dance_manager.dance_server:main',
-            'dance_action_client = dance_manager.dance_client:main'
+            'dance_action_client = dance_manager.dance_client:main',
+            'dance_client_wander = dance_manager.dance_client_wander:main',
+            'dance_client_floaty = dance_manager.dance_client_floaty:main'
         ],
     },
 )

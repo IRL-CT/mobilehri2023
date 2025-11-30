@@ -38,8 +38,10 @@ class DanceActionServer(Node):
         # Dictionary-based switch for dance moves
         dance_moves = {
             "Greeting": lambda: greeting(self.twist_pub),
-            "InchForward": lambda: inch_forward(self.twist_pub),
-            "InchBackward": lambda: inch_backward(self.twist_pub),
+            "InchForward": lambda: inch_forward(self.twist_pub,ramp_up_duration=.2, ramp_down_duration=0.2),
+            "StepForward": lambda: inch_forward(self.twist_pub,ramp_up_duration=.3, ramp_down_duration=0.3),
+            "InchBackward": lambda: inch_backward(self.twist_pub,ramp_up_duration=0.2, ramp_down_duration=0.2),
+            "StepBackward": lambda: inch_backward(self.twist_pub,ramp_up_duration=0.3, ramp_down_duration=0.3),
             "TapOnLeft": lambda: tap_on_side(self.twist_pub, side="left"),
             "TapOnRight": lambda: tap_on_side(self.twist_pub, side="right"),
             "ZigZaggingForward": lambda: zigzag(self.twist_pub, direction="forward"),
@@ -52,12 +54,21 @@ class DanceActionServer(Node):
             "TeacupSpinLeft": lambda: teacup_spin(self.twist_pub, side="left"),
             "SpinClockwise": lambda: spin_on_axis(self.twist_pub, clockwise=True),
             "SpinCounterClockwise": lambda: spin_on_axis(self.twist_pub, clockwise=False),
+            "Spin180CW": lambda: spin_on_axis(self.twist_pub, clockwise=True, rotations=0.53, spin_duration=2.5),
+            "Spin180CCW": lambda: spin_on_axis(self.twist_pub, clockwise=False, rotations=0.53, spin_duration=2.5),
+            "Spin90CW": lambda: spin_on_axis(self.twist_pub, clockwise=True, rotations=0.28, spin_duration=2),
+            "Spin15CW": lambda: spin_on_axis(self.twist_pub, clockwise=True, rotations=0.1, spin_duration=1),
+            "Spin15CCW": lambda: spin_on_axis(self.twist_pub, clockwise=False, rotations=0.1, spin_duration=1),
+            "Spin90CCW": lambda: spin_on_axis(self.twist_pub, clockwise=False, rotations=0.28, spin_duration=2),
             "SpiralLeft": lambda: spiral(self.twist_pub, direction="left"),
             "SpiralRight": lambda: spiral(self.twist_pub, direction="right"),
             "TeacupCircleLeft": lambda: teacup(self.twist_pub),
             "TeacupCircleRight": lambda: teacup(self.twist_pub, direction="right"),
             "FigureEight": lambda: figure_eight(self.twist_pub),
             "FlowerDance": lambda: flower(self.twist_pub),
+            "WagWalk": lambda: wag_walking(self.twist_pub),
+            "PeekLeftRight": lambda: peek_left_right(self.twist_pub),
+            "Bow": lambda: bow_sequence(self.twist_pub)
         }
         
         # Execute the requested dance move

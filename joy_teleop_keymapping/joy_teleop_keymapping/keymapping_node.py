@@ -1,8 +1,11 @@
 import time
+import subprocess
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
+from rclpy.action import ActionClient
+from dance_interfaces.action import Dance
 
 
 class TeleopTwistJoy(Node):
@@ -10,6 +13,10 @@ class TeleopTwistJoy(Node):
         super().__init__('Teleop_Keymapping_node')
         self.joy_sub = self.create_subscription(Joy, '/joy', self.joyCallback, 10)
         self.twist_pub = self.create_publisher(Twist, '/teleop/cmd_vel', 10)
+        self._action_client = ActionClient(self, Dance, 'dance')
+        self.prev_button0 = 0
+        self.prev_button1 = 0
+        self.prev_button2 = 0
         self.max_linear_speed = 4
         self.max_angular_speed = 10
 
@@ -18,31 +25,53 @@ class TeleopTwistJoy(Node):
         self.sendCommand(msg)
 
     def sendCommand(self, msg):
+        # Check for button [X] to trigger dance
+        if msg.buttons[0] == 1 and self.prev_button0 == 0:
+            self.send_dance_goal("Bow")
+        self.prev_button0 = msg.buttons[0]
+
+        # Check for button [O] to trigger PeekLeftRight
+        if msg.buttons[1] == 1 and self.prev_button1 == 0:
+            self.send_dance_goal("PeekLeftRight")
+        self.prev_button1 = msg.buttons[1]
+
+        # Check for button [△] to trigger dance_action_client
+        if msg.buttons[2] == 1 and self.prev_button2 == 0:
+            self.get_logger().info("Starting dance_action_client...")
+            subprocess.Popen(["ros2", "run", "dance_manager", "dance_action_client"])
+        self.prev_button2 = msg.buttons[2]
+
+        # Check for button [□] to trigger dance_action_client
+        if msg.buttons[3] == 1 and self.prev_button3 == 0:
+            self.get_logger().info("Starting dance_action_client...")
+            subprocess.Popen(["ros2", "run", "dance_manager", "dance_client_wander"])
+        self.prev_button3 = msg.buttons[3]
+
+        # Check for button [R1] to trigger dance_action_client
+        if msg.buttons[5] == 1 and self.prev_button5 == 0:
+            self.get_logger().info("Starting dance_action_client...")
+            subprocess.Popen(["ros2", "run", "dance_manager", "dance_client_floaty"])
+        self.prev_button5 = msg.buttons[5]
+
         t = Twist()
         # safety lock, press top left button
-        if msg.buttons[4] == 1.0:
+        if msg.buttons[6] == 1.0:
             t.linear.x = msg.axes[1]
             # use to represent angular velocity
             t.angular.z = msg.axes[3]
             self.twist_pub.publish(t)
         else:
             pass
-        # elif msg.buttons[5] == 1:
-        #     start = time.time()
-        #     while time.time() <= start + 1:
-        #         t.linear.x = (time.time() - start) * 2
-        #         self.twist_pub.publish(t)
-        #         time.sleep(0.1)
-        #     start = time.time()
-        #     while time.time() <= start + 1:
-        #         t.linear.x = 2 * (1 - time.time() + start)
-        #         self.twist_pub.publish(t)
-        #         time.sleep(0.1)
-        # else:
-        #     pass
-        #     t.linear.x = 0.0
-        #     t.angular.z = 0.0
-        #     self.twist_pub.publish(t)
+
+    def send_dance_goal(self, dance_move):
+        goal_msg = Dance.Goal()
+        goal_msg.dance_move = dance_move
+        
+        if self._action_client.wait_for_server(timeout_sec=1.0):
+            self.get_logger().info(f'Sending goal: {dance_move}')
+            self._action_client.send_goal_async(goal_msg)
+        else:
+            self.get_logger().warn('Dance action server not available')
 
 def main(args = None):
     rclpy.init(args=args)

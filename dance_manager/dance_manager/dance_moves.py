@@ -107,6 +107,24 @@ def abs_brake(twist_pub, direction, brake_times=5, pause_duration=0.05):
         time.sleep(pause_duration)
 
 
+def abs_brake_angular(twist_pub, direction, brake_times=5, pause_duration=0.05):
+    """Pulse a small opposite angular command to quickly damp rotation.
+
+    Args:
+        twist_pub: ROS 2 publisher.
+        direction (int): 1 for positive z pulses, -1 for negative z pulses.
+        brake_times (int): number of pulses to send.
+        pause_duration (float): seconds to wait between pulses.
+    """
+    t = Twist()
+    for i in range(brake_times):
+        t.angular.z = direction * 0.2
+        twist_pub.publish(t)
+        time.sleep(pause_duration)
+    t.angular.z = 0.0
+    twist_pub.publish(t)
+
+
 def inch_forward(twist_pub, ramp_up_duration=0.5, ramp_down_duration=0.25):
     """Short forward "inch" motion: accelerate briefly, then decelerate.
 
@@ -316,7 +334,7 @@ def zigzag(
         left_arc(tap_duration / 2.0)
         abs_brake(twist_pub, direction=brake_direction)
 
-def pirouette(twist_pub, side="left", spin_duration=3.0, track=0.60, cmd_dt=0.05):
+def pirouette(twist_pub, side="left", spin_duration=5.0, track=0.60, cmd_dt=0.05):
     """Pivot the robot around one wheel (left or right) for a full 360° turn.
 
     This commands a center linear velocity and an angular velocity such that the
@@ -422,7 +440,7 @@ def slalom(
 def teacup_spin(
     twist_pub,
     side="left",
-    duration=3.0,
+    duration=5.0,
     track=0.6,
     cmd_dt=0.05
 ):
@@ -599,7 +617,7 @@ def spiral(
 
 def teacup(
     twist_pub,
-    duration=15.0,
+    duration=20.0,
     radius_orbit=0.5,
     orbit_turns=1.0,
     spin_turns=4.0,
@@ -671,8 +689,8 @@ def teacup(
 
 def figure_eight(
     twist_pub,
-    radius=0.4,
-    duration=10.0,
+    radius=0.5,
+    duration=20.0,
     turns=1.0,
     cmd_dt=0.05
 ):
@@ -845,3 +863,206 @@ def flower(
     t_msg.angular.z = 0.0
     twist_pub.publish(t_msg)
     abs_brake(twist_pub, direction=-1)
+
+def wag_walking(
+    twist_pub,
+    duration=5.0,
+    linear_speed=0.3,
+    wag_frequency=0.5,
+    wag_magnitude=0.8,
+    cmd_dt=0.05
+):
+    """Move forward while intermittently glancing left and right.
+    
+    The robot moves forward at a constant speed. Periodically, it quickly
+    rotates left-then-center, pauses, then right-then-center.
+    
+    Args:
+        twist_pub: ROS 2 publisher.
+        duration (float): Total time.
+        linear_speed (float): Forward speed.
+        wag_frequency (float): Frequency of the full left-right cycle [Hz].
+        wag_magnitude (float): Angular velocity during the wag [rad/s].
+        cmd_dt (float): Command period.
+    """
+    t = Twist()
+    start_time = time.time()
+    end_time = start_time + duration
+    
+    period = 1.0 / wag_frequency
+    
+    # Duration of one wag (out and back)
+    # We want it to be fast/snappy, e.g., 0.6s total.
+    # But it must fit within the half-period.
+    target_wag_duration = 0.6
+    max_wag_duration = (period / 2.0) * 0.9 # Leave some gap
+    wag_duration = min(target_wag_duration, max_wag_duration)
+    
+    while time.time() < end_time:
+        now = time.time() - start_time
+        cycle_time = now % period
+        
+        w = 0.0
+        
+        # First half of cycle: Wag Left
+        if cycle_time < period / 2.0:
+            if cycle_time < wag_duration:
+                # Out (Left)
+                if cycle_time < wag_duration / 2.0:
+                    w = wag_magnitude
+                # Back (Right)
+                else:
+                    w = -wag_magnitude
+        
+        # Second half of cycle: Wag Right
+        else:
+            rel_time = cycle_time - (period / 2.0)
+            if rel_time < wag_duration:
+                # Out (Right)
+                if rel_time < wag_duration / 2.0:
+                    w = -wag_magnitude
+                # Back (Left)
+                else:
+                    w = wag_magnitude
+                    
+        t.linear.x = linear_speed
+        t.angular.z = w
+        twist_pub.publish(t)
+        time.sleep(cmd_dt)
+        
+    # Stop
+    t.linear.x = 0.0
+    t.angular.z = 0.0
+    twist_pub.publish(t)
+    abs_brake(twist_pub, direction=-1)
+
+def peek_left_right(
+    twist_pub,
+    turn_duration=0.6,
+    pause_duration=1.0,
+    cmd_dt=0.05
+):
+    """Look left, then right, then center.
+    
+    Args:
+        twist_pub: ROS 2 publisher.
+        turn_duration (float): Time for each turn segment.
+        pause_duration (float): Time to pause at each look.
+        cmd_dt (float): Command period.
+    """
+    t = Twist()
+    
+    # 45 degrees
+    target_angle = math.pi / 4.0
+    w = target_angle / turn_duration
+    
+    # Turn Left
+    end = time.time() + turn_duration
+    while time.time() < end:
+        t.angular.z = w
+        twist_pub.publish(t)
+        time.sleep(cmd_dt)
+    
+    abs_brake_angular(twist_pub, direction=-1)
+    time.sleep(pause_duration)
+    
+    # Turn Right (2x angle)
+    end = time.time() + (turn_duration * 2.0)
+    while time.time() < end:
+        t.angular.z = -w
+        twist_pub.publish(t)
+        time.sleep(cmd_dt)
+        
+    abs_brake_angular(twist_pub, direction=1)
+    time.sleep(pause_duration)
+    
+    # Turn Center (Left)
+    end = time.time() + turn_duration
+    while time.time() < end:
+        t.angular.z = w
+        twist_pub.publish(t)
+        time.sleep(cmd_dt)
+        
+    abs_brake_angular(twist_pub, direction=-1)
+
+def bow_sequence(
+    twist_pub,
+    cmd_dt=0.05
+):
+    """Perform a bow sequence: Center, Left, Right.
+    
+    Sequence:
+    1. Center: Step forward, wiggle, step back.
+    2. Turn Left 45 deg.
+    3. Left: Step forward, wiggle, step back.
+    4. Turn Right 90 deg (to 45 deg Right of original).
+    5. Right: Step forward, wiggle, step back.
+    6. Return to Center (Turn Left 45 deg).
+    
+    Args:
+        twist_pub: ROS 2 publisher.
+        cmd_dt (float): Command period.
+    """
+    t = Twist()
+    
+    def perform_bow():
+        # Step forward
+        end = time.time() + 1.0
+        while time.time() < end:
+            t.linear.x = 0.3
+            t.angular.z = 0.0
+            twist_pub.publish(t)
+            time.sleep(cmd_dt)
+        abs_brake(twist_pub, direction=-1)
+        
+        # Wiggle
+        for _ in range(4):
+            t.linear.x = 0.0
+            t.angular.z = 1.0
+            twist_pub.publish(t)
+            time.sleep(0.15)
+            t.angular.z = -1.0
+            twist_pub.publish(t)
+            time.sleep(0.15)
+        t.angular.z = 0.0
+        twist_pub.publish(t)
+        
+        # Step back
+        end = time.time() + 1.0
+        while time.time() < end:
+            t.linear.x = -0.3
+            t.angular.z = 0.0
+            twist_pub.publish(t)
+            time.sleep(cmd_dt)
+        abs_brake(twist_pub, direction=1)
+        time.sleep(0.5)
+
+    def turn(angle_rad, duration=1.0):
+        w = angle_rad / duration
+        end = time.time() + duration
+        while time.time() < end:
+            t.linear.x = 0.0
+            t.angular.z = w
+            twist_pub.publish(t)
+            time.sleep(cmd_dt)
+        t.angular.z = 0.0
+        abs_brake_angular(twist_pub, direction=-1 if w > 0 else 1)
+        time.sleep(0.5)
+
+    # 1. Center Bow
+    perform_bow()
+    
+    # 2. Turn Left 45 deg
+    turn(math.pi / 4.0)
+    
+    # 3. Left Bow
+    perform_bow()
+    
+    # 4. Turn Right 90 deg (to 45 deg Right of original)
+    turn(-math.pi / 2.0)
+    
+    # 5. Right Bow
+    perform_bow()
+    
+    # 6. Return to Center (Turn Left 45 deg)
+    turn(math.pi / 4.0)
