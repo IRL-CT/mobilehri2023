@@ -1,5 +1,7 @@
 import time
 import subprocess
+import os
+import signal
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
@@ -29,6 +31,10 @@ class TeleopTwistJoy(Node):
         self.sendCommand(msg)
 
     def sendCommand(self, msg):
+        # Check for cancel (last two buttons pressed together)
+        if len(msg.buttons) >= 2 and msg.buttons[-1] == 1 and msg.buttons[-2] == 1:
+            self.cancel_all_dances()
+
         # Check for button press (e.g. button 0) to trigger dance
         if msg.buttons[0] == 1 and self.prev_button0 == 0:
             self.send_dance_goal("Bow")
@@ -45,7 +51,10 @@ class TeleopTwistJoy(Node):
             if self.dance_subprocess and self.dance_subprocess.poll() is None:
                 self.get_logger().warn("Dance client already running.")
             else:
-                self.dance_subprocess = subprocess.Popen(["ros2", "run", "dance_manager", "dance_action_client"])
+                self.dance_subprocess = subprocess.Popen(
+                    ["ros2", "run", "dance_manager", "dance_action_client"],
+                    preexec_fn=os.setsid  # Create new process group
+                )
         self.prev_button2 = msg.buttons[2]
 
         # Check for button [□] to trigger dance_action_client
@@ -54,7 +63,10 @@ class TeleopTwistJoy(Node):
             if self.dance_subprocess and self.dance_subprocess.poll() is None:
                 self.get_logger().warn("Dance client already running.")
             else:
-                self.dance_subprocess = subprocess.Popen(["ros2", "run", "dance_manager", "dance_client_wander"])
+                self.dance_subprocess = subprocess.Popen(
+                    ["ros2", "run", "dance_manager", "dance_client_wander"],
+                    preexec_fn=os.setsid  # Create new process group
+                )
         self.prev_button3 = msg.buttons[3]
 
         # Check for button [R1] to trigger dance_action_client
@@ -63,7 +75,10 @@ class TeleopTwistJoy(Node):
             if self.dance_subprocess and self.dance_subprocess.poll() is None:
                 self.get_logger().warn("Dance client already running.")
             else:
-                self.dance_subprocess = subprocess.Popen(["ros2", "run", "dance_manager", "dance_client_floaty"])
+                self.dance_subprocess = subprocess.Popen(
+                    ["ros2", "run", "dance_manager", "dance_client_floaty"],
+                    preexec_fn=os.setsid  # Create new process group
+                )
         self.prev_button5 = msg.buttons[5]
 
         t = Twist()
@@ -94,6 +109,28 @@ class TeleopTwistJoy(Node):
             return
         self.get_logger().info('Goal accepted')
         self._current_goal_handle = goal_handle
+
+    def cancel_all_dances(self):
+        """Cancel any running dance subprocess and action goal."""
+        # Cancel subprocess by killing entire process group
+        if self.dance_subprocess and self.dance_subprocess.poll() is None:
+            self.get_logger().info("Cancelling dance subprocess...")
+            try:
+                # Kill the entire process group (includes all child processes)
+                os.killpg(os.getpgid(self.dance_subprocess.pid), signal.SIGTERM)
+                self.dance_subprocess.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                # Force kill if SIGTERM didn't work
+                os.killpg(os.getpgid(self.dance_subprocess.pid), signal.SIGKILL)
+            except ProcessLookupError:
+                pass  # Process already dead
+            self.dance_subprocess = None
+        
+        # Cancel action goal
+        if self._current_goal_handle:
+            self.get_logger().info("Cancelling action goal...")
+            self._current_goal_handle.cancel_goal_async()
+            self._current_goal_handle = None
 
 def main(args = None):
     rclpy.init(args=args)

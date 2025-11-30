@@ -155,6 +155,50 @@ def inch_forward(twist_pub, ramp_up_duration=0.5, ramp_down_duration=0.25):
 
     abs_brake(twist_pub, direction=-1)
 
+def inch_forward_exponential(twist_pub, ramp_up_duration=0.5, ramp_down_duration=0.25, max_speed=1.0):
+    """Short forward "inch" motion with exponential acceleration/deceleration.
+
+    Generates a small forward movement using exponential curves:
+    - Ramp up: starts slow, then accelerates faster (ease-in)
+    - Ramp down: starts slow deceleration, then decelerates faster (ease-in)
+
+    Uses the formula: speed = max_speed * (progress^2) for ramp up
+                      speed = max_speed * (1 - progress)^2 for ramp down
+
+    Args:
+        twist_pub: ROS 2 publisher for Twist messages.
+        ramp_up_duration (float): seconds to accelerate.
+        ramp_down_duration (float): seconds to decelerate.
+        max_speed (float): maximum linear velocity [m/s].
+
+    Returns:
+        None
+    """
+    t = Twist()
+    start = time.time()
+    
+    # Ramp up: slow start, fast finish (quadratic ease-in)
+    while time.time() <= start + ramp_up_duration:
+        elapsed = time.time() - start
+        progress = elapsed / ramp_up_duration  # 0 to 1
+        # Quadratic ease-in: progress^2
+        t.linear.x = max_speed * (progress ** 2)
+        twist_pub.publish(t)
+        time.sleep(0.05)
+    
+    start = time.time()
+    # Ramp down: slow start, fast finish deceleration (quadratic ease-in for decel)
+    while time.time() <= start + ramp_down_duration:
+        elapsed = time.time() - start
+        progress = elapsed / ramp_down_duration  # 0 to 1
+        # Start at max_speed, end at 0, with slow-then-fast deceleration
+        # remaining = (1 - progress)^2 means we stay high longer, then drop fast
+        t.linear.x = max_speed * ((1 - progress) ** 2)
+        twist_pub.publish(t)
+        time.sleep(0.05)
+
+    abs_brake(twist_pub, direction=-1)
+
 def inch_backward(twist_pub, ramp_up_duration=0.5, ramp_down_duration=0.25):
     """Short backward "inch" motion: accelerate briefly, then decelerate.
 

@@ -65,9 +65,9 @@ class DanceActionServer(Node):
         dance_moves = {
             "Greeting": lambda: greeting(self.twist_pub),
             "InchForward": lambda: inch_forward(self.twist_pub,ramp_up_duration=.2, ramp_down_duration=0.2),
-            "StepForward": lambda: inch_forward(self.twist_pub,ramp_up_duration=.3, ramp_down_duration=0.3),
+            "StepForward": lambda: inch_forward_exponential(self.twist_pub,ramp_up_duration=0.7, ramp_down_duration=0.3),
             "InchBackward": lambda: inch_backward(self.twist_pub,ramp_up_duration=0.2, ramp_down_duration=0.2),
-            "StepBackward": lambda: inch_backward(self.twist_pub,ramp_up_duration=0.3, ramp_down_duration=0.3),
+            "StepBackward": lambda: inch_forward_exponential(self.twist_pub,ramp_up_duration=0.7, ramp_down_duration=0.3),
             "TapOnLeft": lambda: tap_on_side(self.twist_pub, side="left"),
             "TapOnRight": lambda: tap_on_side(self.twist_pub, side="right"),
             "ZigZaggingForward": lambda: zigzag(self.twist_pub, direction="forward"),
