@@ -1,4 +1,7 @@
 Assembly instructions
+<details>
+  <summary>Chair hardware(Click to expand/collapse)</summary>
+
 
 1. Seperate two halves of hoverboard
     (this is only necessary to do if the width of the chair legs does not permit the hoverboard to stay intact)
@@ -23,3 +26,4 @@ Assembly instructions
 7. Attach front boots to front legs of chair. There is a set screw in back that you can use to secure the boots.
    
  <img src="https://github.com/IRL-CT/mobilehri2023/blob/dancerobot/images/IMG_1321.jpg" alt="drawing" width="300"/>
+</details>
