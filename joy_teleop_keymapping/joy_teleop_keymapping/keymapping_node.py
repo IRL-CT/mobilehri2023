@@ -21,8 +21,8 @@ class TeleopTwistJoy(Node):
         self.prev_button2 = 0
         self.prev_button3 = 0
         self.prev_button5 = 0
-        self.max_linear_speed = 4
-        self.max_angular_speed = 10
+        self.max_linear_speed = 0.8
+        self.max_angular_speed = 1.0
         self.dance_subprocess = None
         self._current_goal_handle = None
 
@@ -83,10 +83,10 @@ class TeleopTwistJoy(Node):
 
         t = Twist()
         # safety lock, press top left button
-        if msg.buttons[6] == 1.0:
-            t.linear.x = msg.axes[1]
+        if msg.buttons[6] == 1.0 or msg.buttons[4] == 1.0:
+            t.linear.x = msg.axes[4] * self.max_linear_speed  # use to represent linear velocity
             # use to represent angular velocity
-            t.angular.z = msg.axes[3]
+            t.angular.z = msg.axes[3] * self.max_angular_speed
             self.twist_pub.publish(t)
         else:
             pass

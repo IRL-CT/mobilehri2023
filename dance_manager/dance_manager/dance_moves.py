@@ -107,7 +107,7 @@ def abs_brake(twist_pub, direction, brake_times=5, pause_duration=0.05):
         time.sleep(pause_duration)
 
 
-def abs_brake_angular(twist_pub, direction, brake_times=5, pause_duration=0.05):
+def abs_brake_angular(twist_pub, direction, brake_times=5, pause_duration=0.05, intensity=0.2):
     """Pulse a small opposite angular command to quickly damp rotation.
 
     Args:
@@ -115,10 +115,11 @@ def abs_brake_angular(twist_pub, direction, brake_times=5, pause_duration=0.05):
         direction (int): 1 for positive z pulses, -1 for negative z pulses.
         brake_times (int): number of pulses to send.
         pause_duration (float): seconds to wait between pulses.
+        intensity (float): angular velocity magnitude for brake pulses [rad/s].
     """
     t = Twist()
     for i in range(brake_times):
-        t.angular.z = direction * 0.2
+        t.angular.z = direction * intensity
         twist_pub.publish(t)
         time.sleep(pause_duration)
     t.angular.z = 0.0
@@ -413,15 +414,20 @@ def pirouette(twist_pub, side="left", spin_duration=5.0, track=0.60, cmd_dt=0.05
         twist_pub.publish(t)
         time.sleep(cmd_dt)
 
+    # Stop all motion
+    t.linear.x = 0.0
+    t.angular.z = 0.0
+    twist_pub.publish(t)
+
     # small brake pulses to settle linear motion
-    abs_brake(twist_pub, direction=-1)
+    abs_brake(twist_pub,brake_times=10,direction=-1)
 
 
 def slalom(
     twist_pub,
     direction="forward",
-    duration=4.0,
-    linear_speed=0.5,
+    duration=6.0,
+    linear_speed=0.4,
     oscillation_amp=1.2,
     frequency=0.5,
     cmd_dt=0.05
@@ -465,8 +471,8 @@ def slalom(
         t.linear.x = linear_speed * lin_sign
         
         # Sinusoidal angular motion: w = A * cos(2*pi*f*t)
-        # Integral of cos(t) over full periods is 0 -> 0 net rotation
-        # Using cos instead of sin makes the heading oscillate symmetrically around 0
+        # Heading (integral) = A/(2*pi*f) * sin(2*pi*f*t)
+        # This starts at heading=0, oscillates symmetrically, returns to 0
         t.angular.z = oscillation_amp * math.cos(2 * math.pi * frequency * elapsed)
         
         twist_pub.publish(t)
@@ -483,8 +489,8 @@ def slalom(
 def teacup_spin(
     twist_pub,
     side="left",
-    duration=5.0,
-    track=0.6,
+    duration=8.0,
+    radius=1.0,
     cmd_dt=0.05
 ):
     """Spin 360 degrees while displacing to the side (Disney teacup style).
@@ -492,14 +498,12 @@ def teacup_spin(
     The robot performs a full 360 rotation while varying its linear velocity.
     This creates a spiral-like motion where the robot ends up laterally displaced
     to the specified side, but facing the same direction.
-    Throughout the move, the wheels turn in opposite directions ("spinning"),
-    satisfying the constraint |v| < |w * track / 2|.
 
     Args:
         twist_pub: ROS 2 publisher.
         side (str): "left" or "right" (direction of rotation and displacement).
         duration (float): Total time for the 360 spin.
-        track (float): Track width.
+        radius (float): Approximate lateral displacement [m]. Larger = bigger arc.
         cmd_dt (float): Command period.
     """
     t = Twist()
@@ -513,12 +517,12 @@ def teacup_spin(
     else:
         raise ValueError("side must be 'left' or 'right'")
 
-    # Max linear speed to ensure we are always "spinning" (ICC between wheels)
-    # v_limit = w * track / 2. We use 90% to be safe and ensure opposite wheel velocities.
-    v_limit = 0.9 * w_mag * (track / 2.0)
+    # Linear velocity varies from +v_limit to -v_limit over the spin
+    # The net lateral displacement is approximately: integral of v*sin(theta) dtheta
+    # For a full 360 spin with linear ramp from +v to -v, displacement ≈ 2*v_limit/w
+    # So v_limit = radius * w / 2
+    v_limit = radius * w_mag / 2.0
 
-    # To move to the same side as the rotation (Left turn -> Left move, Right turn -> Right move),
-    # we need to decelerate from positive v to negative v.
     v_start = v_limit
     v_end = -v_limit
 
@@ -537,13 +541,14 @@ def teacup_spin(
         t.angular.z = w
         twist_pub.publish(t)
         time.sleep(cmd_dt)
+    
     abs_brake(twist_pub, direction=1)
 
 
 def spin_on_axis(
     twist_pub,
     rotations=1.0,
-    spin_duration=3.0,
+    spin_duration=5.0,
     clockwise=False,
     cmd_dt=0.05
 ):
@@ -576,19 +581,7 @@ def spin_on_axis(
         twist_pub.publish(t)
         time.sleep(cmd_dt)
 
-    # Stop rotation
-    t.angular.z = 0.0
-    twist_pub.publish(t)
-
-    # Small angular brake pulses to settle residual rotation
-    brake_sign = -1.0 if w > 0 else 1.0
-    for _ in range(5):
-        t.angular.z = brake_sign * 0.2
-        twist_pub.publish(t)
-        time.sleep(0.05)
-
-    t.angular.z = 0.0
-    twist_pub.publish(t)
+    abs_brake_angular(twist_pub, direction=brake_dir)
 
 def spiral(
     twist_pub,
@@ -829,19 +822,7 @@ def flower(
     while time.time() < end_time:
         now = time.time() - start_time
         theta = omega * now
-        
-        # Rose curve: r = R * sin(k * theta)
-        # x = r * cos(theta) = R * sin(k*theta) * cos(theta)
-        # y = r * sin(theta) = R * sin(k*theta) * sin(theta)
-        
-        # Derivatives
-        # dx/dt = dx/dtheta * dtheta/dt = dx/dtheta * omega
-        # dy/dt = dy/dtheta * dtheta/dt = dy/dtheta * omega
-        
-        # dx/dtheta = R * (k*cos(k*theta)*cos(theta) - sin(k*theta)*sin(theta))
         dx_dtheta = radius * (k * math.cos(k*theta) * math.cos(theta) - math.sin(k*theta) * math.sin(theta))
-        
-        # dy/dtheta = R * (k*cos(k*theta)*sin(theta) + sin(k*theta)*cos(theta))
         dy_dtheta = radius * (k * math.cos(k*theta) * math.sin(theta) + math.sin(k*theta) * math.cos(theta))
         
         vx = dx_dtheta * omega
@@ -849,27 +830,8 @@ def flower(
         
         # Linear velocity v
         v = math.sqrt(vx**2 + vy**2)
-        
-        # Angular velocity w
-        # Acceleration components (approximate or analytical)
-        # Analytical is better for smoothness.
-        # d2x/dt2 = d(vx)/dt = d(vx)/dtheta * omega
-        
-        # d(dx_dtheta)/dtheta:
-        # d/dtheta [ k*cos(kt)cos(t) - sin(kt)sin(t) ]
-        # = k [ -k sin(kt)cos(t) - cos(kt)sin(t) ] - [ k cos(kt)sin(t) + sin(kt)cos(t) ]
-        # = -k^2 sin(kt)cos(t) - k cos(kt)sin(t) - k cos(kt)sin(t) - sin(kt)cos(t)
-        # = -(k^2 + 1) sin(kt)cos(t) - 2k cos(kt)sin(t)
-        
-        d2x_dtheta2 = radius * ( -(k**2 + 1)*math.sin(k*theta)*math.cos(theta) - 2*k*math.cos(k*theta)*math.sin(theta) )
-        
-        # d(dy_dtheta)/dtheta:
-        # d/dtheta [ k*cos(kt)sin(t) + sin(kt)cos(t) ]
-        # = k [ -k sin(kt)sin(t) + cos(kt)cos(t) ] + [ k cos(kt)cos(t) - sin(kt)sin(t) ]
-        # = -k^2 sin(kt)sin(t) + k cos(kt)cos(t) + k cos(kt)cos(t) - sin(kt)sin(t)
-        # = -(k^2 + 1) sin(kt)sin(t) + 2k cos(kt)cos(t)
-        
-        d2y_dtheta2 = radius * ( -(k**2 + 1)*math.sin(k*theta)*math.sin(theta) + 2*k*math.cos(k*theta)*math.cos(theta) )
+        d2x_dtheta2 = radius * ( -(k**2 + 1)*math.sin(k*theta)*math.cos(theta) - 2*k*math.cos(k*theta)*math.sin(theta))
+        d2y_dtheta2 = radius * ( -(k**2 + 1)*math.sin(k*theta)*math.sin(theta) + 2*k*math.cos(k*theta)*math.cos(theta))
         
         ax = d2x_dtheta2 * (omega**2)
         ay = d2y_dtheta2 * (omega**2)
@@ -877,23 +839,6 @@ def flower(
         if v > 1e-4:
             w_robot = (vx * ay - vy * ax) / (v**2)
         else:
-            # At the center (cusp), velocity drops to zero.
-            # We need to turn in place or handle the singularity.
-            # For Rose curve at origin, it passes through smoothly if we allow negative velocity?
-            # But differential drive usually assumes v > 0 for forward.
-            # If v < 0, we reverse.
-            # The math above gives signed v? No, sqrt is positive.
-            # We need to check direction of motion relative to heading.
-            # But this is open loop Twist. We define v and w.
-            # If the path requires reversing, we should output negative v.
-            # However, Rose curve x,y trace is continuous.
-            # The robot heading is tangent to the curve.
-            # If the curve passes through origin, the tangent flips 180 degrees?
-            # r = sin(2 theta). At theta=0, r=0, dr/dtheta > 0.
-            # At theta=pi/2, r=0, dr/dtheta < 0.
-            # The robot comes back to center and goes out the other way.
-            # This implies crossing the origin.
-            # With v > 0, we would just keep driving forward.
             w_robot = 0.0
 
         t_msg.linear.x = v
@@ -933,10 +878,7 @@ def wag_walking(
     end_time = start_time + duration
     
     period = 1.0 / wag_frequency
-    
-    # Duration of one wag (out and back)
-    # We want it to be fast/snappy, e.g., 0.6s total.
-    # But it must fit within the half-period.
+
     target_wag_duration = 0.6
     max_wag_duration = (period / 2.0) * 0.9 # Leave some gap
     wag_duration = min(target_wag_duration, max_wag_duration)
@@ -1094,18 +1036,13 @@ def bow_sequence(
 
     # 1. Center Bow
     perform_bow()
-    
     # 2. Turn Left 45 deg
     turn(math.pi / 4.0)
-    
     # 3. Left Bow
     perform_bow()
-    
     # 4. Turn Right 90 deg (to 45 deg Right of original)
     turn(-math.pi / 2.0)
-    
     # 5. Right Bow
     perform_bow()
-    
     # 6. Return to Center (Turn Left 45 deg)
     turn(math.pi / 4.0)

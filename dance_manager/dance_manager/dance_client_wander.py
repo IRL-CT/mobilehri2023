@@ -56,13 +56,9 @@ def main(args=None):
     rclpy.init(args=args)
 
     action_client = DanceActionClient()
-    
-   # action_client.send_goal_and_wait("InchForward")
     # Greeting (6 seconds)
-    #action_client.send_goal_and_wait("InchForward")
     action_client.send_goal_and_wait("Greeting") 
     action_client.send_goal_and_wait("Spin90CW")
-    # action_client.send_goal_and_wait("ZigZaggingForward")
     action_client.send_goal_and_wait("SlalomForward")
     action_client.send_goal_and_wait("Spin90CCW")
     action_client.send_goal_and_wait("Greeting")
@@ -72,6 +68,18 @@ def main(args=None):
     action_client.send_goal_and_wait("Spin90CCW")
     action_client.send_goal_and_wait("WagWalk")
     action_client.send_goal_and_wait("Spin90CW")
+    action_client.send_goal_and_wait("Greeting")
+
+    action_client.send_goal_and_wait("Spin90CCW")
+    action_client.send_goal_and_wait("SlalomForward")
+    action_client.send_goal_and_wait("Spin90CW")
+    action_client.send_goal_and_wait("Greeting")
+    action_client.send_goal_and_wait("Spin90CW")
+    action_client.send_goal_and_wait("SlalomForward")
+    action_client.send_goal_and_wait("Spin90CCW")
+    action_client.send_goal_and_wait("Spin90CW")
+    action_client.send_goal_and_wait("WagWalk")
+    action_client.send_goal_and_wait("Spin90CCW")
     action_client.send_goal_and_wait("Greeting")
 
 
