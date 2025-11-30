@@ -46,4 +46,6 @@ Assembly instructions
 
 6. Use Dual lock to attach the parts to the hoverboard chassis.
 
+7. Use zipties to manage the wires
+
 </details>
