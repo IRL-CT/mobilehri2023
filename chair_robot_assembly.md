@@ -44,6 +44,6 @@ Assembly instructions
 
 5. Use a usb cable to connect the Raspberry Pi to the Usb battery.
 
-   6. Use Dual lock to attach the parts to the hoverboard chassis.
+6. Use Dual lock to attach the parts to the hoverboard chassis.
 
 </details>
