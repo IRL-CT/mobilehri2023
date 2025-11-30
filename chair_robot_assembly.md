@@ -24,6 +24,8 @@ Assembly instructions
    <img src="https://github.com/IRL-CT/mobilehri2023/blob/dancerobot/images/IMG_1323.jpg" width="300"/>
 
 7. Attach front boots to front legs of chair. There is a set screw in back that you can use to secure the boots.
+
+8. Add the magnetic knife block under the seat of the chair. Its role is just to weight the front of the chair down.
    
  <img src="https://github.com/IRL-CT/mobilehri2023/blob/dancerobot/images/IMG_1321.jpg"  width="300"/>
 </details>
