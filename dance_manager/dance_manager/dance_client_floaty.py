@@ -57,30 +57,39 @@ def main(args=None):
 
     action_client = DanceActionClient()
     
-    # Greeting (6 seconds)
-    action_client.send_goal_and_wait("Greeting")
+    # # Greeting (6 seconds)
+    # action_client.send_goal_and_wait("Greeting")
 
-    # Slalom backward (4 seconds)
-    action_client.send_goal_and_wait("SlalomBackward")
+    # # Slalom backward (4 seconds)
+    # action_client.send_goal_and_wait("SlalomBackward")
     
-    # Pirouette left (3 seconds)
-    action_client.send_goal_and_wait("PirouetteLeft")
+    # # Pirouette left (3 seconds)
+    # action_client.send_goal_and_wait("PirouetteLeft")
 
-    # Pirouette left (3 seconds)
-    action_client.send_goal_and_wait("PirouetteRight")
+    # # Pirouette left (3 seconds)
+    # action_client.send_goal_and_wait("PirouetteRight")
 
-    # Slalom forward (4 seconds)
-    action_client.send_goal_and_wait("SlalomForward")
+    # # Slalom forward (4 seconds)
+    # action_client.send_goal_and_wait("SlalomForward")
 
-    # Teacup spin left (3 seconds)
-    action_client.send_goal_and_wait("TeacupSpinLeft")
+    # # Teacup spin left (3 seconds)
+    # action_client.send_goal_and_wait("TeacupSpinLeft")
 
-    # Teacup spin right (3 seconds)
-    action_client.send_goal_and_wait("TeacupSpinRight")
+    # # Teacup spin right (3 seconds)
+    # action_client.send_goal_and_wait("TeacupSpinRight")
 
-    action_client.send_goal_and_wait("TeacupCircleLeft")
+    # action_client.send_goal_and_wait("TeacupCircleLeft")
 
-    action_client.send_goal_and_wait("TeacupCircleRight")
+    # action_client.send_goal_and_wait("TeacupCircleRight")
+
+    action_client.send_goal_and_wait("Spin180CW")
+
+    for _ in range(3):
+        action_client.send_goal_and_wait("StepForward")
+
+    action_client.send_goal_and_wait("RollForward")
+
+    action_client.send_goal_and_wait("SpinClockwise")
         
     action_client.destroy_node()
     rclpy.shutdown()

@@ -124,7 +124,6 @@ def abs_brake_angular(twist_pub, direction, brake_times=5, pause_duration=0.05):
     t.angular.z = 0.0
     twist_pub.publish(t)
 
-
 def inch_forward(twist_pub, ramp_up_duration=0.5, ramp_down_duration=0.25):
     """Short forward "inch" motion: accelerate briefly, then decelerate.
 

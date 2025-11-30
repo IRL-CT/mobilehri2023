@@ -5,8 +5,12 @@ from rclpy.action import ActionServer
 from rclpy.node import Node
 
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Bool
 from dance_interfaces.action import Dance
 from dance_manager.dance_moves import *
+
+# Global cancel flag that dance_moves can check
+cancel_requested = False
 
 
 class DanceActionServer(Node):
@@ -19,6 +23,7 @@ class DanceActionServer(Node):
             'dance',
             self.execute_callback)
         self.twist_pub = self.create_publisher(Twist, '/dance_manager/cmd_vel', 10)
+        self.cancel_sub = self.create_subscription(Bool, '/dance_cancel', self.cancel_callback, 10)
         
         # Flag to track if an action is currently executing
         self.action_active = False
@@ -29,8 +34,29 @@ class DanceActionServer(Node):
         # For sophisticated default motion
         self.start_time = time.time()
 
+    def cancel_callback(self, msg):
+        """Handle cancel requests from joystick."""
+        global cancel_requested
+        if msg.data:
+            self.get_logger().info('Cancel requested!')
+            cancel_requested = True
+            # Immediately stop the robot
+            stop_twist = Twist()
+            self.twist_pub.publish(stop_twist)
+
     def execute_callback(self, goal_handle):
-        self.get_logger().info('Executing goal...')
+        global cancel_requested
+        
+        # Check if cancel was requested BEFORE starting this move
+        # This skips queued goals when cancel was pressed
+        if cancel_requested:
+            self.get_logger().info(f'Skipping goal {goal_handle.request.dance_move} - cancel was requested')
+            goal_handle.succeed()
+            result = Dance.Result()
+            result.result_code = 0  # Cancelled
+            return result
+        
+        self.get_logger().info(f'Executing goal: {goal_handle.request.dance_move}')
         
         # Disable default motion while executing action
         self.action_active = True
@@ -68,24 +94,33 @@ class DanceActionServer(Node):
             "FlowerDance": lambda: flower(self.twist_pub),
             "WagWalk": lambda: wag_walking(self.twist_pub),
             "PeekLeftRight": lambda: peek_left_right(self.twist_pub),
-            "Bow": lambda: bow_sequence(self.twist_pub)
+            "Bow": lambda: bow_sequence(self.twist_pub),
+            "RollForward": lambda: inch_forward(self.twist_pub, ramp_up_duration=1.5, ramp_down_duration=0.8),
         }
         
         # Execute the requested dance move
         requested_move = goal_handle.request.dance_move
         if requested_move in dance_moves:
             dance_moves[requested_move]()
-            self.get_logger().info(f'Executed dance move: {requested_move}')
+            if cancel_requested:
+                self.get_logger().info(f'Dance move {requested_move} was cancelled')
+            else:
+                self.get_logger().info(f'Executed dance move: {requested_move}')
         else:
             self.get_logger().warn(f'Unknown dance move: {requested_move}')
+        
+        # Stop the robot after dance completes or is cancelled
+        stop_twist = Twist()
+        self.twist_pub.publish(stop_twist)
         
         goal_handle.succeed()
         
         # Re-enable default motion after action completes
         self.action_active = False
+        cancel_requested = False
         
         result = Dance.Result()
-        result.result_code = 1
+        result.result_code = 0 if cancel_requested else 1
         return result
     
     def default_motion_callback(self):
