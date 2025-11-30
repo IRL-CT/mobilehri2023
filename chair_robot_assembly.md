@@ -16,7 +16,10 @@ Assembly instructions
    <img src="https://github.com/IRL-CT/mobilehri2023/blob/dancerobot/images/IMG_1387.jpg" alt="drawing" width="300"/>
 
 4. Attach the back boots (white 3d printed parts) on the hoverboard loosely, also using the t-slot bolts and nuts.
-5. Attach the chair legs into the boots, and adjust the hoverboard assembly laterally to accommodate the chair width. Tighten everything. 
+5. Attach the chair legs into the boots, and adjust the hoverboard assembly laterally to accommodate the chair width. Tighten everything.
 
-6. Attach front boots to front legs of chair. There is a set screw in back that you can use to secure the boots.
+   <img src="https://github.com/IRL-CT/mobilehri2023/blob/dancerobot/images/IMG_1323.jpg" alt="drawing" width="300"/>
+
+7. Attach front boots to front legs of chair. There is a set screw in back that you can use to secure the boots.
    
+ <img src="https://github.com/IRL-CT/mobilehri2023/blob/dancerobot/images/IMG_1321.jpg" alt="drawing" width="300"/>
