@@ -40,6 +40,12 @@ quit()
 ```
 
 ## Launch Dancing Module
+### In field setup sequence for WiFi
+- start the Netgear Wifi hotspot
+- plug in the WiFi extender (big white box). Keep it next to the WiFi hotspot
+- Wait until the WiFi extender stops flashing, Netgear should reads ~ 3 devices connected
+- Turn on the RPis 
+
 In your terminal:
 ```bash
 $ cd ~/dancebot_ws/src/mobilehri2023
