@@ -61,7 +61,7 @@ class TeleopTwistJoy(Node):
                 )
         self.prev_button2 = msg.buttons[2]
 
-        # Check for button [□] to trigger dance_action_client
+        # Check for left button to trigger dance_action_client
         if msg.axes[6] == 1.0 and self.prev_left == 0.0:
             self.get_logger().info("Starting dance_action_client...")
             if self.dance_subprocess and self.dance_subprocess.poll() is None:
@@ -73,7 +73,7 @@ class TeleopTwistJoy(Node):
                 )
         self.prev_left = msg.axes[6]
 
-        # Check for button [□] to trigger dance_action_client
+        # Check for right button to trigger dance_action_client
         if msg.axes[6] == -1.0 and self.prev_right == 0.0:
             self.get_logger().info("Starting dance_action_client...")
             if self.dance_subprocess and self.dance_subprocess.poll() is None:
