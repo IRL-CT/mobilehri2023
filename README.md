@@ -40,11 +40,6 @@ quit()
 ```
 
 ## Launch Dancing Module
-### In field setup sequence for WiFi
-- start the Netgear Wifi hotspot
-- plug in the WiFi extender (big white box). Keep it next to the WiFi hotspot
-- Wait until the WiFi extender stops flashing, Netgear should reads ~ 3 devices connected
-- Turn on the RPis 
 
 In your terminal:
 ```bash
@@ -82,3 +77,28 @@ ros2 action send_goal /dance dance_interfaces/action/Dance '{"dance_move":"ZigZa
 The robot should start walking forward.
 
 To add more moves, check out docs/dance_manager.md
+
+
+## In field setup sequence for WiFi
+1. start the Netgear Wifi hotspot
+2. plug in the WiFi extender (big white box). Keep it next to the WiFi hotspot
+3. Wait until the WiFi extender stops flashing, Netgear should reads ~ 3 devices connected
+4. Turn on the RPis, they should connec to the hotspot automatically. SSH to each of them using the IP address written on the box.
+5. Press the home button on the joystick, wait until it stops flashing (LED should be blue.) It should connect to the Joystick RPi directly.
+6. Calibration
+```bash
+# In Hoverboard RPi
+cd /home/dancerobot/dancebot_ws/src/mobilehri2023
+python3 startup_calibration.py
+```
+
+7. Now Launch!
+```bash
+# In Joystick RPi
+ros2 launch mobile_robot_control joystick_launch.py
+```
+
+```bash
+# In Hoverboard RPi
+ros2 launch mobile_robot_control hoverboard_launch.py
+```
