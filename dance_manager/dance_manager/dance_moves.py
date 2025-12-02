@@ -581,6 +581,10 @@ def spin_on_axis(
         twist_pub.publish(t)
         time.sleep(cmd_dt)
 
+    # Stop and brake
+    t.angular.z = 0.0
+    twist_pub.publish(t)
+    brake_dir = -1 if w > 0 else 1
     abs_brake_angular(twist_pub, direction=brake_dir)
 
 def spiral(

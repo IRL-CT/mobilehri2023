@@ -21,6 +21,10 @@ class TeleopTwistJoy(Node):
         self.prev_button2 = 0
         self.prev_button3 = 0
         self.prev_button5 = 0
+        self.prev_left = 0.0
+        self.prev_right = 0.0
+        self.prev_forward = 0.0
+        self.prev_backward = 0.0
         self.max_linear_speed = 0.8
         self.max_angular_speed = 1.0
         self.dance_subprocess = None
@@ -58,16 +62,38 @@ class TeleopTwistJoy(Node):
         self.prev_button2 = msg.buttons[2]
 
         # Check for button [□] to trigger dance_action_client
-        if msg.buttons[3] == 1 and self.prev_button3 == 0:
+        if msg.axes[6] == 1.0 and self.prev_left == 0.0:
             self.get_logger().info("Starting dance_action_client...")
             if self.dance_subprocess and self.dance_subprocess.poll() is None:
                 self.get_logger().warn("Dance client already running.")
             else:
                 self.dance_subprocess = subprocess.Popen(
-                    ["ros2", "run", "dance_manager", "dance_client_wander"],
+                    ["ros2", "run", "dance_manager", "dance_client_wander_left"],
                     preexec_fn=os.setsid  # Create new process group
                 )
-        self.prev_button3 = msg.buttons[3]
+        self.prev_left = msg.axes[6]
+
+        # Check for button [□] to trigger dance_action_client
+        if msg.axes[6] == -1.0 and self.prev_right == 0.0:
+            self.get_logger().info("Starting dance_action_client...")
+            if self.dance_subprocess and self.dance_subprocess.poll() is None:
+                self.get_logger().warn("Dance client already running.")
+            else:
+                self.dance_subprocess = subprocess.Popen(
+                    ["ros2", "run", "dance_manager", "dance_client_wander_right"],
+                    preexec_fn=os.setsid  # Create new process group
+                )
+        self.prev_right = msg.axes[6]
+
+        # Check for forward button to trigger slalom forward
+        if msg.axes[7] == 1.0 and self.prev_forward == 0.0:
+            self.send_dance_goal("SlalomForward")
+        self.prev_forward = msg.axes[7]
+
+        # Check for backward button to trigger slalom forward
+        if msg.axes[7] == -1.0 and self.prev_backward == 0.0:
+            self.send_dance_goal("SlalomBackward")
+        self.prev_backward = msg.axes[7]
 
         # Check for button [R1] to trigger dance_action_client
         if msg.buttons[5] == 1 and self.prev_button5 == 0:

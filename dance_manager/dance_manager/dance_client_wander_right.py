@@ -57,45 +57,9 @@ def main(args=None):
 
     action_client = DanceActionClient()
     # Greeting (6 seconds)
-    action_client.send_goal_and_wait("Greeting") 
-    action_client.send_goal_and_wait("Spin90CW")
-    action_client.send_goal_and_wait("SlalomForward")
-    action_client.send_goal_and_wait("Spin90CCW")
-    action_client.send_goal_and_wait("Greeting")
     action_client.send_goal_and_wait("Spin90CCW")
     action_client.send_goal_and_wait("SlalomForward")
     action_client.send_goal_and_wait("Spin90CW")
-    action_client.send_goal_and_wait("Spin90CCW")
-    action_client.send_goal_and_wait("WagWalk")
-    action_client.send_goal_and_wait("Spin90CW")
-    action_client.send_goal_and_wait("Greeting")
-
-    action_client.send_goal_and_wait("Spin90CCW")
-    action_client.send_goal_and_wait("SlalomForward")
-    action_client.send_goal_and_wait("Spin90CW")
-    action_client.send_goal_and_wait("Greeting")
-    action_client.send_goal_and_wait("Spin90CW")
-    action_client.send_goal_and_wait("SlalomForward")
-    action_client.send_goal_and_wait("Spin90CCW")
-    action_client.send_goal_and_wait("Spin90CW")
-    action_client.send_goal_and_wait("WagWalk")
-    action_client.send_goal_and_wait("Spin90CCW")
-    action_client.send_goal_and_wait("Greeting")
-
-
-    '''# Slalom backward (4 seconds)
-
-    action_client.send_goal_and_wait("SlalomBackward")
-    
-    # Pirouette left (3 seconds)
-    action_client.send_goal_and_wait("PirouetteLeft")
-
-    # Pirouette left (3 seconds)
-    action_client.send_goal_and_wait("PirouetteRight")
-
-    # Slalom forward (4 seconds)
-    action_client.send_goal_and_wait("SlalomForward")'''
-
         
     action_client.destroy_node()
     rclpy.shutdown()
