@@ -11,7 +11,7 @@ password: far1@FAR
 3. ODrive Calibration:
 - Make sure both wheels are off the ground and free to spin. (Put a book or a brick under the chassis).
 
-- UPDATE (Nov 21st): I added a calibration script `startup_calibration.py`. You can just run that script and jump to next module.
+- UPDATE (Nov 21st): I added a calibration script `startup_calibration.py`. You can just run that script from ~/dancebot_ws/src/mobilehri2023/ and jump to next module.
 - Open a terminal
 ```bash
 $ odrivetool #(enter the odrive command interface)
