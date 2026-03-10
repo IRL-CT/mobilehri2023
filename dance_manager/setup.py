@@ -31,7 +31,8 @@ setup(
             'dance_action_client = dance_manager.dance_client:main',
             'dance_client_wander_left = dance_manager.dance_client_wander_left:main',
             'dance_client_wander_right = dance_manager.dance_client_wander_right:main',
-            'dance_client_floaty = dance_manager.dance_client_floaty:main'
+            'dance_client_floaty = dance_manager.dance_client_floaty:main',
+            'choreographer = dance_manager.choreographer:main',
         ],
     },
 )
