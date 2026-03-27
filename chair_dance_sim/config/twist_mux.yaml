@@ -1,0 +1,11 @@
+twist_mux:
+  ros__parameters:
+    topics:
+      teleop:
+        topic   : /teleop/cmd_vel
+        timeout : 0.1
+        priority: 100
+      dance_manager:
+        topic   : /dance_manager/cmd_vel
+        timeout : 0.1
+        priority: 10

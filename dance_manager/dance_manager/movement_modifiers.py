@@ -78,6 +78,7 @@ __all__ = [
     "seq_crescendo",
     "seq_tension",
     "seq_alternate",
+    "seq_asymmetric_pause",
 ]
 
 
@@ -304,3 +305,18 @@ def seq_tension(hold_duration: float = 1.0) -> dict:
 def seq_alternate(other_move: str, n: int, gap: float = 0.0) -> dict:
     """Sequence spec: interleave this move with other_move, n pairs total."""
     return {"type": "alternate", "other_move": other_move, "n": n, "gap": gap}
+
+
+def seq_asymmetric_pause(short: float = 0.2, long: float = 0.8, n: int = 4) -> dict:
+    """Sequence spec: repeat a move with alternating short/long pauses.
+
+    Inspired by dancer "power of the pause" — the most intense part of a dance
+    is often the stillness. Asymmetric pauses let the audience see the robot
+    "deciding" what to do next, creating tension and anticipation.
+
+    Args:
+        short: Duration of the short pause [s].
+        long: Duration of the long pause [s].
+        n: Number of repetitions.
+    """
+    return {"type": "asymmetric_pause", "short": short, "long": long, "n": n}

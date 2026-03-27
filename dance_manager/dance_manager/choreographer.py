@@ -1,25 +1,34 @@
 """
-Layer 3 — Choreographic Structure
+Layer 3 — Choreographic Structure (Platform-Agnostic)
 
 Provides high-level data structures (Motif, Phrase, Sequence) and an
 AI-powered choreographer that generates full sequences from natural language
 descriptions using the Anthropic Claude API.
 
+This layer is entirely platform-agnostic. It expresses choreographic INTENT
+(move names, energy, texture, timing) without knowing how any robot executes
+the moves. The platform abstraction layer translates intent into motor commands.
+
+Dancer Design Thinking — Choreography Layer Concepts
+------------------------------------------------------
+§1 Texture:          abstract movement quality (honey, staccato, ice, cloud, magnet)
+§2 Marking:          energy=0.1 for low-power rehearsal / preview
+§4 Motif Memory:     track signature moves, recall them to build personality
+§4 Repetition+Dev:   A-A-A-B patterns via decay/growth modifiers
+§4 Asymmetric Pause: the most intense part is often the stillness
+§4 Reason/Intent:    annotation + phrase intent describe WHY, not just WHAT
+
 Architecture
 ------------
-Motif    : atomic unit — one named move + optional modifier spec + energy
-Phrase   : ordered list of Motifs with a name and optional trailing pause
+Motif    : atomic unit — one named move + energy + texture + modifier
+Phrase   : ordered list of Motifs with a name, intent, and trailing pause
 Sequence : ordered list of Phrases with metadata (tempo, mood, title)
 
 Workflow
 --------
 1. Programmatic: build Motif / Phrase / Sequence manually, call run_sequence().
-2. AI-driven: instantiate AIChoreographer, call .generate(description),
-   receive a Sequence, then call run_sequence().
-
-The run_sequence() function sends goals to the existing DanceActionServer via
-the DanceActionClient.send_goal_and_wait() method. No changes to the server
-or the action interface are needed.
+2. AI-driven: instantiate AIChoreographer with a RobotPlatform,
+   call .generate(description), receive a Sequence, then call run_sequence().
 
 Usage — programmatic
 ---------------------
@@ -31,44 +40,44 @@ Usage — programmatic
         tempo_bpm=120.0,
         mood="playful",
         phrases=[
-            Phrase(name="intro", motifs=[
-                Motif("Greeting", energy=0.6),
+            Phrase(name="intro", intent="greet the audience", motifs=[
+                Motif("Greeting", energy=0.6, texture="neutral"),
                 Motif("WagWalk", energy=0.5, gap_before=0.3),
             ]),
             Phrase(name="climax", gap_after=1.0, motifs=[
                 Motif("TapOnRight", modifier=seq_crescendo(n=4), annotation="build up"),
-                Motif("SpinCounterClockwise", energy=0.9),
+                Motif("SpinCounterClockwise", energy=0.9, texture="staccato"),
             ]),
             Phrase(name="outro", motifs=[
-                Motif("Bow", energy=0.4),
+                Motif("Bow", energy=0.4, texture="honey"),
             ]),
         ],
     )
     run_sequence(action_client, sequence)
 
-Usage — AI choreography
-------------------------
+Usage — AI choreography (platform-aware)
+-----------------------------------------
     import rclpy
     from dance_manager.dance_client import DanceActionClient
     from dance_manager.choreographer import AIChoreographer, run_sequence
+    from dance_manager.platforms.differential_drive import DiffDrivePlatform
 
     rclpy.init()
     client = DanceActionClient()
+    platform = DiffDrivePlatform(twist_pub)
 
-    ai = AIChoreographer(api_key="sk-ant-...")
+    ai = AIChoreographer(api_key="sk-ant-...", platform=platform)
     sequence = ai.generate(
         "A curious, exploratory dance: start cautious, then grow more playful "
         "and energetic, end with a graceful bow."
     )
     run_sequence(client, sequence)
-
-    client.destroy_node()
-    rclpy.shutdown()
 """
 
 from __future__ import annotations
 
 import json
+import random
 import time
 from dataclasses import dataclass, field
 from typing import Optional
@@ -78,20 +87,22 @@ from typing import Optional
 
 @dataclass
 class Motif:
-    """The atomic unit of choreography: one named move with optional modifiers.
+    """The atomic unit of choreography: one named move with expressive intent.
 
     Attributes:
-        move: A move name recognised by the DanceActionServer (e.g. "TapOnRight").
-        energy: Expressive intensity [0.0–1.0]. Used by run_sequence to scale
-                inter-move gaps (lighter energy → more breathing room before).
+        move: A move name recognised by the RobotPlatform (e.g. "TapOnRight").
+        energy: Expressive intensity [0.0-1.0]. Used to scale motion and gaps.
+        texture: Movement quality preset name ("neutral", "honey", "staccato",
+                 "ice", "cloud", "magnet"). Passed to the platform for
+                 interpretation into motor parameters.
         gap_before: Explicit pause [s] inserted before sending this goal.
-                    Overrides flow-based gap calculations when > 0.
         modifier: Optional dict produced by a seq_* helper in movement_modifiers
                   (e.g. seq_repeat(4, gap=0.2)). Expanded by run_sequence.
         annotation: Human-readable note shown in logs. Has no effect on motion.
     """
     move: str
     energy: float = 0.5
+    texture: str = "neutral"
     gap_before: float = 0.0
     modifier: Optional[dict] = None
     annotation: str = ""
@@ -104,10 +115,13 @@ class Phrase:
     Attributes:
         motifs: Ordered sequence of Motif objects.
         name: Human-readable label (e.g. 'intro', 'chorus', 'bridge').
+        intent: WHY this phrase exists — the reason behind the movements.
+                Inspired by dancer thinking: "one causes another, or the echo effect."
         gap_after: Seconds of stillness appended after the final motif.
     """
     motifs: list = field(default_factory=list)
     name: str = ""
+    intent: str = ""
     gap_after: float = 0.0
 
 
@@ -119,7 +133,6 @@ class Sequence:
         phrases: Ordered list of Phrase objects.
         title: Human-readable title of the dance.
         tempo_bpm: Musical tempo used to scale gap timing globally.
-                   Higher BPM → shorter beat duration → tighter gaps.
         mood: Single expressive descriptor (e.g. 'playful', 'dramatic', 'dreamy').
         description: Free-text summary of the choreographic intention.
     """
@@ -130,71 +143,147 @@ class Sequence:
     description: str = ""
 
 
+# ── Motif Memory ─────────────────────────────────────────────────────────────
+
+class MotifMemory:
+    """Track used motifs and recall signature moves to build personality.
+
+    Inspired by dancer "repeat but variate" — repeat a motif from earlier
+    in a different context. This creates a "memory" for the audience and
+    builds a recognizable personality for the robot.
+
+    Usage:
+        memory = MotifMemory()
+        # Record moves as they execute
+        memory.record("TapOnRight")
+        memory.record("SpinClockwise")
+        # Get a signature move to recall
+        sig = memory.get_signature_move()  # → "TapOnRight" (most used)
+        # Check if it's time to recall
+        if memory.should_recall(current_index=10, total_moves=20):
+            # Insert the signature move
+            ...
+    """
+
+    def __init__(self, recall_interval: int = 5):
+        """
+        Args:
+            recall_interval: Suggest a recall every N moves.
+        """
+        self._history: list[str] = []
+        self._counts: dict[str, int] = {}
+        self._recall_interval = recall_interval
+        self._last_recall_index = -recall_interval  # allow first recall early
+
+    def record(self, move_name: str) -> None:
+        """Record a move that was just executed."""
+        self._history.append(move_name)
+        self._counts[move_name] = self._counts.get(move_name, 0) + 1
+
+    def get_signature_move(self) -> Optional[str]:
+        """Return the most-used move, or None if no history."""
+        if not self._counts:
+            return None
+        return max(self._counts, key=self._counts.get)
+
+    def should_recall(self, current_index: int, total_moves: int) -> bool:
+        """Check if it's a good time to insert a signature move recall.
+
+        Returns True if enough moves have passed since the last recall
+        and we're not at the very beginning or end of the sequence.
+        """
+        if current_index < 3:  # too early
+            return False
+        if current_index >= total_moves - 2:  # too late
+            return False
+        return (current_index - self._last_recall_index) >= self._recall_interval
+
+    def mark_recalled(self, index: int) -> None:
+        """Mark that a recall was inserted at the given index."""
+        self._last_recall_index = index
+
+    def get_variation(self, move_name: str, available_moves: list[str]) -> str:
+        """Get a variation of a move (same category if possible).
+
+        For the "repeat but variate" concept — same move but the platform
+        may execute it with different energy/texture.
+        """
+        return move_name  # simplest variation: same move, different context
+
+
 # ── Sequence Runner ───────────────────────────────────────────────────────────
 
 def run_sequence(action_client, sequence: Sequence) -> None:
     """Execute a Sequence by sending goals to the DanceActionServer.
 
     Iterates through every Phrase and Motif in order. For each Motif:
-    - Expands any modifier spec into a list of (move_name, gap_before) pairs.
+    - Expands any modifier spec into a list of (move_name, gap_before, energy, texture) tuples.
     - Sleeps gap_before seconds before sending each goal.
-    - Calls action_client.send_goal_and_wait(move_name) and blocks until done.
+    - Calls action_client.send_goal_and_wait() with move name, energy, and texture.
 
     After each Phrase, sleeps phrase.gap_after seconds.
 
     Args:
         action_client: An instance of DanceActionClient (or any object with
-                       a .send_goal_and_wait(move_name: str) method).
+                       a .send_goal_and_wait(move_name, energy, texture) method).
+                       For backward compatibility, also accepts clients with
+                       .send_goal_and_wait(move_name) signature.
         sequence: A populated Sequence dataclass.
     """
     beat = 60.0 / max(1.0, sequence.tempo_bpm)
+    memory = MotifMemory()
+
+    # Count total moves for motif memory recall timing
+    total_moves = sum(len(p.motifs) for p in sequence.phrases)
+    move_index = 0
 
     def _expand(motif: Motif) -> list:
-        """Expand one Motif into a list of (move_name, gap_before) pairs."""
+        """Expand one Motif into a list of (move_name, gap_before, energy, texture) tuples."""
         mod = motif.modifier
         base_gap = motif.gap_before
+        energy = motif.energy
+        texture = motif.texture
 
         if mod is None:
-            return [(motif.move, base_gap)]
+            return [(motif.move, base_gap, energy, texture)]
 
         mtype = mod.get("type", "")
 
         if mtype == "repeat":
             n = mod.get("n", 1)
             gap = mod.get("gap", 0.0)
-            return [(motif.move, base_gap if i == 0 else gap) for i in range(n)]
+            return [(motif.move, base_gap if i == 0 else gap, energy, texture) for i in range(n)]
 
         if mtype == "mirror":
             gap = mod.get("gap", 0.0)
             left_name = _mirror_name(motif.move, to="left")
             right_name = _mirror_name(motif.move, to="right")
-            return [(left_name, base_gap), (right_name, gap)]
+            return [(left_name, base_gap, energy, texture),
+                    (right_name, gap, energy, texture)]
 
         if mtype == "decay":
             n = mod.get("n", 3)
             factor = mod.get("factor", 0.7)
-            # Model decay as increasing pre-move gap (energy fades → more rest)
             pairs = []
             gap = base_gap
             for i in range(n):
-                pairs.append((motif.move, max(0.0, gap)))
+                pairs.append((motif.move, max(0.0, gap), energy, texture))
                 gap += beat * (1.0 - factor)
             return pairs
 
         if mtype == "crescendo":
             n = mod.get("n", 3)
             factor = mod.get("factor", 1.3)
-            # Model crescendo as shrinking pre-move gap (urgency builds)
             pairs = []
             gap = base_gap + beat * (n - 1) * (factor - 1.0) * 0.5
             for i in range(n):
-                pairs.append((motif.move, max(0.0, gap)))
+                pairs.append((motif.move, max(0.0, gap), energy, texture))
                 gap -= beat * (factor - 1.0)
             return pairs
 
         if mtype == "tension":
             hold = mod.get("hold_duration", 1.0)
-            return [(motif.move, base_gap + hold)]
+            return [(motif.move, base_gap + hold, energy, texture)]
 
         if mtype == "alternate":
             other = mod.get("other_move", motif.move)
@@ -202,45 +291,62 @@ def run_sequence(action_client, sequence: Sequence) -> None:
             gap = mod.get("gap", 0.0)
             pairs = []
             for i in range(n):
-                pairs.append((motif.move, base_gap if i == 0 else gap))
-                pairs.append((other, gap))
+                pairs.append((motif.move, base_gap if i == 0 else gap, energy, texture))
+                pairs.append((other, gap, energy, texture))
+            return pairs
+
+        if mtype == "asymmetric_pause":
+            short = mod.get("short", 0.2)
+            long_ = mod.get("long", 0.8)
+            n = mod.get("n", 2)
+            pairs = []
+            for i in range(n):
+                pause = short if i % 2 == 0 else long_
+                pairs.append((motif.move, base_gap if i == 0 else pause, energy, texture))
             return pairs
 
         # Unknown modifier type — fall back to bare move
-        return [(motif.move, base_gap)]
+        return [(motif.move, base_gap, energy, texture)]
+
+    def _send_goal(move_name, energy=0.5, texture="neutral"):
+        """Send goal with backward-compatible signature detection."""
+        try:
+            action_client.send_goal_and_wait(move_name, energy, texture)
+        except TypeError:
+            # Backward compat: old clients only accept move_name
+            action_client.send_goal_and_wait(move_name)
 
     for phrase in sequence.phrases:
         if phrase.name:
-            print(f"[Choreographer] Phrase: {phrase.name}")
+            intent_str = f" — {phrase.intent}" if phrase.intent else ""
+            print(f"[Choreographer] Phrase: {phrase.name}{intent_str}")
         for motif in phrase.motifs:
             expanded = _expand(motif)
-            for move_name, gap in expanded:
+            for move_name, gap, energy, texture in expanded:
                 if gap > 0.0:
                     time.sleep(gap)
                 if motif.annotation:
-                    print(f"[Choreographer]   {move_name}  # {motif.annotation}")
+                    print(f"[Choreographer]   {move_name} (e={energy:.1f} t={texture})  # {motif.annotation}")
                 else:
-                    print(f"[Choreographer]   {move_name}")
-                action_client.send_goal_and_wait(move_name)
+                    print(f"[Choreographer]   {move_name} (e={energy:.1f} t={texture})")
+
+                _send_goal(move_name, energy, texture)
+                memory.record(move_name)
+                move_index += 1
+
         if phrase.gap_after > 0.0:
             time.sleep(phrase.gap_after)
 
 
 def _mirror_name(move_name: str, to: str) -> str:
-    """Replace Left/Right suffix in a move name with the requested side.
-
-    Examples:
-        _mirror_name("PirouetteLeft",  to="right") → "PirouetteRight"
-        _mirror_name("PirouetteRight", to="left")  → "PirouetteLeft"
-        _mirror_name("SlalomForward",  to="right") → "SlalomForward"  (unchanged)
-    """
+    """Replace Left/Right suffix in a move name with the requested side."""
     cap = to.capitalize()
     opposite = "Right" if cap == "Left" else "Left"
     if move_name.endswith(opposite):
         return move_name[: -len(opposite)] + cap
     if move_name.endswith(cap):
-        return move_name  # already correct side
-    return move_name  # no side suffix found
+        return move_name
+    return move_name
 
 
 # ── AI Choreographer ──────────────────────────────────────────────────────────
@@ -248,40 +354,36 @@ def _mirror_name(move_name: str, to: str) -> str:
 class AIChoreographer:
     """Generate Sequence objects from natural language using the Claude API.
 
-    Requires the `anthropic` package: pip install anthropic
+    Platform-aware: queries the loaded RobotPlatform for available moves
+    and capabilities, so it generates choreography appropriate for any robot.
 
     Args:
         api_key (str): Anthropic API key (sk-ant-...).
-        model (str): Claude model ID. Defaults to claude-opus-4-5.
+        platform: Optional RobotPlatform instance. If provided, the AI uses
+                  the platform's available moves and description. If None,
+                  falls back to the default differential drive move set.
+        model (str): Claude model ID.
     """
 
-    # All move names registered in dance_server.py
-    AVAILABLE_MOVES = [
-        # Social gestures
+    # Fallback move list when no platform is provided
+    DEFAULT_MOVES = [
         "Greeting", "PeekLeftRight", "Bow",
-        # Linear steps
         "InchForward", "StepForward", "RollForward",
         "InchBackward", "StepBackward",
         "GlideForward", "GlideBackward",
-        # Expressive in-place
         "Shimmy", "ShimmyFast", "Pulse", "Vibrate",
-        # Pivots and taps
         "TapOnLeft", "TapOnRight",
         "PirouetteLeft", "PirouetteRight",
-        # Axis spins
         "SpinClockwise", "SpinCounterClockwise",
         "Spin180CW", "Spin180CCW",
         "Spin90CW", "Spin90CCW",
         "Spin15CW", "Spin15CCW",
-        # Weaving paths
         "ZigZaggingForward", "ZigZaggingBackward",
         "SlalomForward", "SlalomBackward",
         "WagWalk",
-        # Arc / circle patterns
         "ArcLeft", "ArcRight",
         "TeacupSpinLeft", "TeacupSpinRight",
         "TeacupCircleLeft", "TeacupCircleRight",
-        # Complex paths
         "SpiralLeft", "SpiralRight",
         "FigureEight", "FlowerDance",
     ]
@@ -293,30 +395,31 @@ modifier (optional, null for no modifier):
   { "type": "decay",     "n": <int>,   "factor": <float 0-1> }
   { "type": "crescendo", "n": <int>,   "factor": <float >1> }
   { "type": "tension",   "hold_duration": <float> }
-  { "type": "alternate", "other_move": "<move_name>", "n": <int>, "gap": <float> }\
+  { "type": "alternate", "other_move": "<move_name>", "n": <int>, "gap": <float> }
+  { "type": "asymmetric_pause", "short": <float>, "long": <float>, "n": <int> }\
 """
 
-    SYSTEM_PROMPT = """\
-You are a choreographer for a differential-drive dance robot. \
+    TEXTURE_OPTIONS = "neutral, honey, staccato, ice, cloud, magnet"
+
+    SYSTEM_PROMPT_TEMPLATE = """\
+You are a choreographer for a dance robot. \
 Generate dance sequences as strict JSON — no prose, no markdown fences.
 
-━━ Robot capabilities ━━
-The robot has two wheels. It can move forward/backward, spin in place, \
-pivot around one wheel, and drive arcs, spirals, figure-eights, and flower curves.
+━━ Robot platform ━━
+{platform_description}
 
 ━━ Available moves ━━
-SOCIAL:     Greeting, Bow, PeekLeftRight
-FORWARD:    InchForward, StepForward, RollForward, WagWalk, SlalomForward, ZigZaggingForward
-BACKWARD:   InchBackward, StepBackward, SlalomBackward, ZigZaggingBackward
-SPIN:       SpinClockwise, SpinCounterClockwise, Spin180CW, Spin180CCW,
-            Spin90CW, Spin90CCW, Spin15CW, Spin15CCW
-PIVOT:      PirouetteLeft, PirouetteRight, TeacupSpinLeft, TeacupSpinRight
-ARC:        TeacupCircleLeft, TeacupCircleRight
-COMPLEX:    SpiralLeft, SpiralRight, FigureEight, FlowerDance
-PERCUSSIVE: TapOnLeft, TapOnRight
+{move_list}
 
 ━━ Expressive parameters ━━
 energy      float 0–1   0=restrained/slow, 0.5=normal, 1=explosive/fast
+texture     string      one of: {texture_options}
+            neutral  = balanced acceleration
+            honey    = viscous, high damping, slow onset, smooth
+            staccato = percussive, instant torque, abrupt stops
+            ice      = frictionless, minimal damping, gliding
+            cloud    = floaty, gentle, airy, exponential curves
+            magnet   = push-pull attraction/repulsion dynamics
 gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspended)
 
 ━━ Modifiers ━━
@@ -331,11 +434,13 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
   "phrases": [
     {{
       "name": "<string>",
+      "intent": "<string — WHY this phrase exists>",
       "gap_after": <float>,
       "motifs": [
         {{
           "move": "<MOVE_NAME>",
           "energy": <float>,
+          "texture": "<texture_name>",
           "gap_before": <float>,
           "modifier": <modifier object or null>,
           "annotation": "<string>"
@@ -345,24 +450,32 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
   ]
 }}
 
-━━ Choreography guidelines ━━
+━━ Dancer design thinking guidelines ━━
 1. Organise into 3–5 named phrases (intro, buildup, climax, wind-down, outro).
-2. Match move character to mood:
-   — spinning moves  → excitement, dizziness, joy
-   — slalom / wag   → playfulness, curiosity
-   — bow / greeting → social, finale
-   — spiral / flower → grace, contemplation
-3. Use tension modifier before dramatic or climactic moves.
-4. Use crescendo for a series that builds to a peak.
-5. Use decay for a series that winds down.
-6. Use alternate for call-and-response (e.g. TapOnLeft ↔ TapOnRight).
-7. Use mirror for symmetric bilateral moves (e.g. PirouetteLeft + PirouetteRight).
-8. Never invent move names — only use the list above.
-9. Budget for ~3–8 seconds per move. Total sequence: 30–120 s unless specified.
-10. Return ONLY the JSON object. No extra text.\
+2. Each phrase needs an "intent" — the reason behind the movements.
+   Think about WHY: the music, the space, the previous movement, the inner emotion.
+3. Use texture to create movement quality:
+   — honey for flowing, sustained passages
+   — staccato for sharp, rhythmic accents
+   — cloud for gentle, floating sections
+   — ice for smooth gliding transitions
+4. Use the power of the pause: the most intense moment is often stillness.
+   Insert asymmetric pauses — they let the audience see the robot "deciding."
+5. Repetition + Deviation (A-A-A-B): repeat to build meaning, then break
+   the pattern on the 4th cycle to create surprise.
+6. Use tension modifier before dramatic or climactic moves.
+7. Use crescendo for a series that builds to a peak.
+8. Use decay for a series that winds down.
+9. Vary energy AND texture together for expressive contrast:
+   — low energy + honey = contemplative
+   — high energy + staccato = explosive
+   — low energy + cloud = ethereal
+10. Never invent move names — only use the list above.
+11. Budget for ~3–8 seconds per move. Total sequence: 30–120 s unless specified.
+12. Return ONLY the JSON object. No extra text.\
 """
 
-    def __init__(self, api_key: str, model: str = "claude-opus-4-5"):
+    def __init__(self, api_key: str, platform=None, model: str = "claude-opus-4-5"):
         try:
             import anthropic
         except ImportError as exc:
@@ -372,16 +485,37 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
             ) from exc
         self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model
+        self._platform = platform
+
+    def _get_available_moves(self) -> list[str]:
+        if self._platform is not None:
+            return self._platform.get_available_moves()
+        return self.DEFAULT_MOVES
+
+    def _get_move_list_str(self) -> str:
+        if self._platform is not None and hasattr(self._platform, 'get_move_categories'):
+            categories = self._platform.get_move_categories()
+            lines = []
+            for cat, moves in categories.items():
+                lines.append(f"{cat.upper():12s}: {', '.join(moves)}")
+            return "\n".join(lines)
+        # Fallback: flat list
+        return ", ".join(self._get_available_moves())
+
+    def _get_platform_description(self) -> str:
+        if self._platform is not None:
+            return self._platform.get_platform_description()
+        return (
+            "A differential-drive dance robot with two wheels. "
+            "It can move forward/backward, spin in place, pivot around one wheel, "
+            "and drive arcs, spirals, figure-eights, and flower curves."
+        )
 
     def generate(self, description: str, max_retries: int = 2) -> Sequence:
         """Generate a Sequence from a natural language choreography description.
 
-        Calls the Claude API, parses the JSON response, validates move names,
-        and returns a Sequence ready for run_sequence().
-
         Args:
-            description: Human description of the desired dance (mood, tempo,
-                         narrative arc, style, etc.).
+            description: Human description of the desired dance.
             max_retries: How many times to ask Claude to fix invalid JSON.
 
         Returns:
@@ -390,7 +524,12 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
         Raises:
             ValueError: If the response cannot be parsed after max_retries.
         """
-        system = self.SYSTEM_PROMPT.format(modifier_schema=self.MODIFIER_SCHEMA)
+        system = self.SYSTEM_PROMPT_TEMPLATE.format(
+            platform_description=self._get_platform_description(),
+            move_list=self._get_move_list_str(),
+            texture_options=self.TEXTURE_OPTIONS,
+            modifier_schema=self.MODIFIER_SCHEMA,
+        )
         messages = [{"role": "user", "content": description}]
 
         for attempt in range(max_retries + 1):
@@ -422,19 +561,16 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
                     ) from exc
 
     def _parse_json(self, text: str) -> dict:
-        """Strip optional markdown fences and parse JSON."""
         text = text.strip()
         if text.startswith("```"):
-            # Remove opening fence line
             text = text[text.find("\n") + 1:]
-            # Remove closing fence
             if "```" in text:
                 text = text[: text.rfind("```")]
         return json.loads(text.strip())
 
     def _dict_to_sequence(self, data: dict) -> Sequence:
-        """Convert a parsed dict into a Sequence, validating move names."""
-        valid = set(self.AVAILABLE_MOVES)
+        valid = set(self._get_available_moves())
+        valid_textures = {"neutral", "honey", "staccato", "ice", "cloud", "magnet"}
         phrases = []
         for ph in data.get("phrases", []):
             motifs = []
@@ -442,12 +578,15 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
                 move = m.get("move", "")
                 if move not in valid:
                     raise ValueError(
-                        f"Unknown move '{move}'. "
-                        f"Valid moves: {sorted(valid)}"
+                        f"Unknown move '{move}'. Valid moves: {sorted(valid)}"
                     )
+                texture = str(m.get("texture", "neutral")).lower()
+                if texture not in valid_textures:
+                    texture = "neutral"
                 motifs.append(Motif(
                     move=move,
                     energy=float(m.get("energy", 0.5)),
+                    texture=texture,
                     gap_before=float(m.get("gap_before", 0.0)),
                     modifier=m.get("modifier"),
                     annotation=str(m.get("annotation", "")),
@@ -455,6 +594,7 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
             phrases.append(Phrase(
                 motifs=motifs,
                 name=str(ph.get("name", "")),
+                intent=str(ph.get("intent", "")),
                 gap_after=float(ph.get("gap_after", 0.0)),
             ))
         return Sequence(
@@ -475,12 +615,14 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
             "",
         ]
         for phrase in sequence.phrases:
-            lines.append(f"[{phrase.name}]")
+            intent_str = f" — {phrase.intent}" if phrase.intent else ""
+            lines.append(f"[{phrase.name}]{intent_str}")
             for motif in phrase.motifs:
                 mod_str = f"  mod={motif.modifier}" if motif.modifier else ""
                 note = f"  # {motif.annotation}" if motif.annotation else ""
                 lines.append(
                     f"  {motif.move:<28} energy={motif.energy:.1f}"
+                    f"  texture={motif.texture}"
                     f"  gap={motif.gap_before:.1f}s{mod_str}{note}"
                 )
             if phrase.gap_after:

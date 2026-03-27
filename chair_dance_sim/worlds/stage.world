@@ -1,0 +1,258 @@
+<?xml version="1.0" ?>
+<!--
+  Dance Stage — Gazebo Classic World
+
+  A performance stage environment for the dancing chair robot:
+  - Wooden stage floor (elevated platform)
+  - Stage lighting (directional + colored spots)
+  - Curtain backdrop (walls)
+  - Audience area markers
+-->
+<sdf version="1.7">
+  <world name="dance_stage">
+
+    <!-- ── Physics ──────────────────────────────────────────────────────── -->
+    <physics type="ode">
+      <max_step_size>0.002</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>500</real_time_update_rate>
+      <ode>
+        <solver>
+          <type>quick</type>
+          <iters>50</iters>
+        </solver>
+      </ode>
+    </physics>
+
+    <!-- ── Lighting ─────────────────────────────────────────────────────── -->
+
+    <!-- Main overhead (warm stage light) -->
+    <light type="directional" name="stage_overhead">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 8 0 0 0</pose>
+      <diffuse>1.0 0.95 0.85 1</diffuse>
+      <specular>0.5 0.48 0.42 1</specular>
+      <direction>0.0 0.0 -1.0</direction>
+      <attenuation>
+        <range>30</range>
+        <constant>0.3</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+    </light>
+
+    <!-- Stage left spot (warm amber) -->
+    <light type="spot" name="spot_left">
+      <pose>-3 3 5 0 0.6 -0.5</pose>
+      <diffuse>1.0 0.7 0.3 1</diffuse>
+      <specular>0.5 0.35 0.15 1</specular>
+      <direction>0.3 -0.3 -1.0</direction>
+      <attenuation>
+        <range>15</range>
+        <constant>0.1</constant>
+        <linear>0.05</linear>
+        <quadratic>0.01</quadratic>
+      </attenuation>
+      <spot>
+        <inner_angle>0.5</inner_angle>
+        <outer_angle>1.0</outer_angle>
+        <falloff>1.0</falloff>
+      </spot>
+    </light>
+
+    <!-- Stage right spot (cool blue) -->
+    <light type="spot" name="spot_right">
+      <pose>-3 -3 5 0 0.6 0.5</pose>
+      <diffuse>0.4 0.6 1.0 1</diffuse>
+      <specular>0.2 0.3 0.5 1</specular>
+      <direction>0.3 0.3 -1.0</direction>
+      <attenuation>
+        <range>15</range>
+        <constant>0.1</constant>
+        <linear>0.05</linear>
+        <quadratic>0.01</quadratic>
+      </attenuation>
+      <spot>
+        <inner_angle>0.5</inner_angle>
+        <outer_angle>1.0</outer_angle>
+        <falloff>1.0</falloff>
+      </spot>
+    </light>
+
+    <!-- Ambient fill -->
+    <light type="directional" name="ambient_fill">
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.15 0.15 0.2 1</diffuse>
+      <specular>0.0 0.0 0.0 1</specular>
+      <direction>0 0 -1</direction>
+    </light>
+
+    <!-- ── Ground plane (beneath the stage) ─────────────────────────────── -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="ground_link">
+        <collision name="ground_collision">
+          <geometry>
+            <plane><normal>0 0 1</normal><size>50 50</size></plane>
+          </geometry>
+          <surface>
+            <friction>
+              <ode><mu>1.0</mu><mu2>1.0</mu2></ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="ground_visual">
+          <geometry>
+            <plane><normal>0 0 1</normal><size>50 50</size></plane>
+          </geometry>
+          <material>
+            <ambient>0.05 0.05 0.08 1</ambient>
+            <diffuse>0.08 0.08 0.12 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ── Stage platform (raised wooden floor) ─────────────────────────── -->
+    <model name="stage_floor">
+      <static>true</static>
+      <pose>0 0 0.0 0 0 0</pose>
+      <link name="stage_link">
+        <!-- Main stage surface -->
+        <collision name="stage_collision">
+          <geometry>
+            <box><size>6.0 8.0 0.005</size></box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.8</mu><mu2>0.8</mu2></ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="stage_visual">
+          <geometry>
+            <box><size>6.0 8.0 0.005</size></box>
+          </geometry>
+          <material>
+            <ambient>0.35 0.22 0.10 1</ambient>
+            <diffuse>0.55 0.35 0.18 1</diffuse>
+            <specular>0.15 0.12 0.08 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ── Backdrop curtain (back wall) ─────────────────────────────────── -->
+    <model name="backdrop">
+      <static>true</static>
+      <pose>-3.1 0 1.5 0 0 0</pose>
+      <link name="backdrop_link">
+        <visual name="backdrop_visual">
+          <geometry>
+            <box><size>0.05 8.0 3.0</size></box>
+          </geometry>
+          <material>
+            <ambient>0.05 0.02 0.02 1</ambient>
+            <diffuse>0.15 0.02 0.02 1</diffuse>
+          </material>
+        </visual>
+        <collision name="backdrop_collision">
+          <geometry>
+            <box><size>0.05 8.0 3.0</size></box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ── Side curtains ────────────────────────────────────────────────── -->
+    <model name="curtain_left">
+      <static>true</static>
+      <pose>-1.0 4.05 1.5 0 0 0</pose>
+      <link name="curtain_link">
+        <visual name="curtain_visual">
+          <geometry><box><size>4.5 0.05 3.0</size></box></geometry>
+          <material>
+            <ambient>0.05 0.02 0.02 1</ambient>
+            <diffuse>0.15 0.02 0.02 1</diffuse>
+          </material>
+        </visual>
+        <collision name="curtain_collision">
+          <geometry><box><size>4.5 0.05 3.0</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="curtain_right">
+      <static>true</static>
+      <pose>-1.0 -4.05 1.5 0 0 0</pose>
+      <link name="curtain_link">
+        <visual name="curtain_visual">
+          <geometry><box><size>4.5 0.05 3.0</size></box></geometry>
+          <material>
+            <ambient>0.05 0.02 0.02 1</ambient>
+            <diffuse>0.15 0.02 0.02 1</diffuse>
+          </material>
+        </visual>
+        <collision name="curtain_collision">
+          <geometry><box><size>4.5 0.05 3.0</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ── Stage edge markers (tape lines, like real dance stages) ────── -->
+    <model name="center_mark">
+      <static>true</static>
+      <pose>0 0 0.006 0 0 0</pose>
+      <link name="mark_link">
+        <visual name="mark_visual">
+          <geometry><box><size>0.05 0.05 0.001</size></box></geometry>
+          <material>
+            <ambient>0.8 0.8 0.2 1</ambient>
+            <diffuse>1.0 1.0 0.3 1</diffuse>
+            <emissive>0.3 0.3 0.1 1</emissive>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Downstage edge markers (audience-facing, 5 small marks) -->
+    <model name="ds_mark_1"><static>true</static>
+      <pose>2.9 -3.0 0.006 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><box><size>0.3 0.02 0.001</size></box></geometry>
+        <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>1 1 1 1</diffuse><emissive>0.2 0.2 0.2 1</emissive></material>
+      </visual></link>
+    </model>
+    <model name="ds_mark_2"><static>true</static>
+      <pose>2.9 -1.5 0.006 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><box><size>0.3 0.02 0.001</size></box></geometry>
+        <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>1 1 1 1</diffuse><emissive>0.2 0.2 0.2 1</emissive></material>
+      </visual></link>
+    </model>
+    <model name="ds_mark_3"><static>true</static>
+      <pose>2.9 0.0 0.006 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><box><size>0.3 0.02 0.001</size></box></geometry>
+        <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>1 1 1 1</diffuse><emissive>0.2 0.2 0.2 1</emissive></material>
+      </visual></link>
+    </model>
+    <model name="ds_mark_4"><static>true</static>
+      <pose>2.9 1.5 0.006 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><box><size>0.3 0.02 0.001</size></box></geometry>
+        <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>1 1 1 1</diffuse><emissive>0.2 0.2 0.2 1</emissive></material>
+      </visual></link>
+    </model>
+    <model name="ds_mark_5"><static>true</static>
+      <pose>2.9 3.0 0.006 0 0 0</pose>
+      <link name="l"><visual name="v"><geometry><box><size>0.3 0.02 0.001</size></box></geometry>
+        <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>1 1 1 1</diffuse><emissive>0.2 0.2 0.2 1</emissive></material>
+      </visual></link>
+    </model>
+
+    <!-- ── Camera viewpoint (audience perspective) ──────────────────────── -->
+    <gui fullscreen="0">
+      <camera name="audience_cam">
+        <pose>5.5 0 2.5 0 0.3 3.14159</pose>
+      </camera>
+    </gui>
+
+  </world>
+</sdf>

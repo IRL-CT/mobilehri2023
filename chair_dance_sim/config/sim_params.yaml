@@ -1,0 +1,15 @@
+# Simulation-specific parameters
+#
+# These override real-robot defaults for smoother sim behavior.
+# The dance system uses the same topics and action interface as the real robot.
+
+chair_dance_sim:
+  ros__parameters:
+    # Physics
+    wheel_separation: 0.45    # track width [m] — must match URDF
+    wheel_radius: 0.075       # wheel radius [m] — must match URDF
+
+    # Timing tweaks for simulation
+    # Gazebo diff_drive plugin has slight latency; these compensate
+    move_settle_time: 0.15    # extra pause after each move for physics to settle [s]
+    cmd_rate: 50.0            # twist publish rate [Hz]

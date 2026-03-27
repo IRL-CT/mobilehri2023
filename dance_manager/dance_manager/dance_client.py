@@ -12,25 +12,29 @@ class DanceActionClient(Node):
         super().__init__('dance_action_client')
         self._action_client = ActionClient(self, Dance, 'dance')
 
-    def send_goal(self, dance_move):
+    def send_goal(self, dance_move, energy=0.5, texture="neutral"):
         goal_msg = Dance.Goal()
         goal_msg.dance_move = dance_move
+        goal_msg.energy = float(energy)
+        goal_msg.texture = str(texture)
 
         self._action_client.wait_for_server()
-        
-        self.get_logger().info(f'Sending goal: {dance_move}')
+
+        self.get_logger().info(f'Sending goal: {dance_move} (e={energy}, t={texture})')
         send_goal_future = self._action_client.send_goal_async(goal_msg)
-        
+
         return send_goal_future
-    
-    def send_goal_and_wait(self, dance_move):
-        """Send a goal and wait for completion with proper result handling"""
+
+    def send_goal_and_wait(self, dance_move, energy=0.5, texture="neutral"):
+        """Send a goal and wait for completion with proper result handling."""
         goal_msg = Dance.Goal()
         goal_msg.dance_move = dance_move
+        goal_msg.energy = float(energy)
+        goal_msg.texture = str(texture)
 
         self._action_client.wait_for_server()
-        
-        self.get_logger().info(f'Sending goal: {dance_move}')
+
+        self.get_logger().info(f'Sending goal: {dance_move} (e={energy}, t={texture})')
         send_goal_future = self._action_client.send_goal_async(goal_msg)
         
         # Wait for goal to be accepted

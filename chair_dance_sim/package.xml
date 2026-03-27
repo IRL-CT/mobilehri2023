@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>chair_dance_sim</name>
+  <version>0.1.0</version>
+  <description>Gazebo Fortress simulation for the dancing chair robot</description>
+  <maintainer email="fb266@cornell.edu">dancerobot</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>robot_state_publisher</depend>
+  <depend>joint_state_publisher</depend>
+  <depend>xacro</depend>
+
+  <!-- Gazebo Fortress (Humble pairing) -->
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>ros_gz_image</exec_depend>
+
+  <!-- Dance system -->
+  <exec_depend>dance_manager</exec_depend>
+  <exec_depend>dance_interfaces</exec_depend>
+  <exec_depend>twist_mux</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
