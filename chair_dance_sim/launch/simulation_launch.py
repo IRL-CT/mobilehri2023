@@ -1,17 +1,18 @@
 """
-Full simulation launch — Gazebo + Chair Robot + Dance System
+Full simulation launch — Gz Sim (Fortress) + Chair Robot + Dance System
 
 Launches:
-  1. Gazebo Classic with the dance stage world
+  1. Gz Sim with the dance stage world
   2. Robot state publisher (URDF → /robot_description, /tf)
-  3. Chair robot spawned in Gazebo
-  4. Twist mux (routes /dance_manager/cmd_vel → /cmd_vel)
-  5. Dance action server (platform=differential_drive)
+  3. Chair robot spawned in Gz Sim
+  4. ros_gz_bridge (bridges /cmd_vel, /odom, /joint_states, /clock)
+  5. Twist mux (routes /dance_manager/cmd_vel → /cmd_vel)
+  6. Dance action server (platform=differential_drive)
 
 Usage:
   ros2 launch chair_dance_sim simulation_launch.py
 
-  # Headless mode (WSL — no Gazebo GUI, use RViz instead):
+  # Headless mode (WSL / Jetson — no GUI, use RViz instead):
   ros2 launch chair_dance_sim simulation_launch.py headless:=true use_rviz:=true
 
 Then send dance commands:
@@ -23,7 +24,6 @@ import os
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
-    ExecuteProcess,
     IncludeLaunchDescription,
     TimerAction,
 )
@@ -32,11 +32,10 @@ from launch.substitutions import (
     Command,
     FindExecutable,
     LaunchConfiguration,
-    PathJoinSubstitution,
 )
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
-from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -44,20 +43,21 @@ def generate_launch_description():
 
     # ── Package paths ───────────────────────────────────────────────────
     sim_pkg = get_package_share_directory('chair_dance_sim')
+    ros_gz_sim_pkg = get_package_share_directory('ros_gz_sim')
 
     urdf_file = os.path.join(sim_pkg, 'urdf', 'chair_robot.urdf.xacro')
-    world_file = os.path.join(sim_pkg, 'worlds', 'stage.world')
+    world_file = os.path.join(sim_pkg, 'worlds', 'stage.sdf')
     twist_mux_cfg = os.path.join(sim_pkg, 'config', 'twist_mux.yaml')
 
     # ── Launch arguments ────────────────────────────────────────────────
     use_rviz_arg = DeclareLaunchArgument(
         'use_rviz', default_value='false',
-        description='Launch RViz2 alongside Gazebo'
+        description='Launch RViz2 alongside Gz Sim'
     )
 
     headless_arg = DeclareLaunchArgument(
         'headless', default_value='false',
-        description='Run Gazebo server only (no GUI) — useful on WSL'
+        description='Run Gz Sim server only (no GUI) — useful on WSL / Jetson'
     )
 
     platform_arg = DeclareLaunchArgument(
@@ -72,27 +72,25 @@ def generate_launch_description():
 
     # ── Nodes ───────────────────────────────────────────────────────────
 
-    # 1a. Gazebo with GUI (default)
-    gazebo_gui = ExecuteProcess(
-        cmd=[
-            'gazebo', '--verbose',
-            '-s', 'libgazebo_ros_init.so',
-            '-s', 'libgazebo_ros_factory.so',
-            world_file,
-        ],
-        output='screen',
+    # 1a. Gz Sim with GUI (default)
+    gz_sim_gui = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(ros_gz_sim_pkg, 'launch', 'gz_sim.launch.py'),
+        ),
+        launch_arguments={
+            'gz_args': f'-r {world_file}',
+        }.items(),
         condition=UnlessCondition(LaunchConfiguration('headless')),
     )
 
-    # 1b. Gazebo server only (headless — no Ogre, no crash on WSL)
-    gazebo_headless = ExecuteProcess(
-        cmd=[
-            'gzserver', '--verbose',
-            '-s', 'libgazebo_ros_init.so',
-            '-s', 'libgazebo_ros_factory.so',
-            world_file,
-        ],
-        output='screen',
+    # 1b. Gz Sim server only (headless)
+    gz_sim_headless = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(ros_gz_sim_pkg, 'launch', 'gz_sim.launch.py'),
+        ),
+        launch_arguments={
+            'gz_args': f'-r -s {world_file}',
+        }.items(),
         condition=IfCondition(LaunchConfiguration('headless')),
     )
 
@@ -105,23 +103,38 @@ def generate_launch_description():
         parameters=[{'robot_description': ParameterValue(robot_description, value_type=str)}],
     )
 
-    # 3. Spawn the chair robot in Gazebo
+    # 3. Spawn the chair robot in Gz Sim
     spawn_robot = Node(
-        package='gazebo_ros',
-        executable='spawn_entity.py',
+        package='ros_gz_sim',
+        executable='create',
         name='spawn_chair_robot',
         output='screen',
         arguments=[
-            '-entity', 'chair_robot',
+            '-name', 'chair_robot',
             '-topic', '/robot_description',
             '-x', '0.0',
             '-y', '0.0',
-            '-z', '0.01',  # slightly above stage to avoid clipping
-            '-Y', '0.0',   # facing downstage (towards audience)
+            '-z', '0.01',
+            '-Y', '0.0',
         ],
     )
 
-    # 4. Twist mux (same config as real robot)
+    # 4. ros_gz_bridge — bridge topics between Gz Sim and ROS 2
+    gz_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='gz_bridge',
+        output='screen',
+        arguments=[
+            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
+            '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
+            '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+            '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
+            '/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+        ],
+    )
+
+    # 5. Twist mux (same config as real robot)
     twist_mux = Node(
         package='twist_mux',
         executable='twist_mux',
@@ -131,7 +144,7 @@ def generate_launch_description():
         remappings=[('cmd_vel_out', '/cmd_vel')],
     )
 
-    # 5. Dance action server
+    # 6. Dance action server
     dance_server = Node(
         package='dance_manager',
         executable='dance_action_server',
@@ -142,7 +155,7 @@ def generate_launch_description():
         }],
     )
 
-    # 6. Optional RViz
+    # 7. Optional RViz
     rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -157,16 +170,17 @@ def generate_launch_description():
         headless_arg,
         platform_arg,
 
-        # Start Gazebo + robot state publisher first
-        gazebo_gui,
-        gazebo_headless,
+        # Start Gz Sim + robot state publisher first
+        gz_sim_gui,
+        gz_sim_headless,
         robot_state_publisher,
 
-        # Give Gazebo 3 seconds to start, then spawn robot + start dance system
+        # Give Gz Sim 3 seconds to start, then spawn robot + start dance system
         TimerAction(
             period=3.0,
             actions=[
                 spawn_robot,
+                gz_bridge,
                 twist_mux,
                 dance_server,
             ],

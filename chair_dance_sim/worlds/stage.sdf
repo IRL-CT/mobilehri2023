@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <!--
-  Dance Stage — Gazebo Classic World
+  Dance Stage — Gz Sim (Fortress) World
 
   A performance stage environment for the dancing chair robot:
   - Wooden stage floor (elevated platform)
@@ -11,17 +11,19 @@
 <sdf version="1.7">
   <world name="dance_stage">
 
+    <!-- Gz Sim required system plugins -->
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+
     <!-- ── Physics ──────────────────────────────────────────────────────── -->
-    <physics type="ode">
+    <physics name="default_physics" type="ode">
       <max_step_size>0.002</max_step_size>
       <real_time_factor>1.0</real_time_factor>
       <real_time_update_rate>500</real_time_update_rate>
-      <ode>
-        <solver>
-          <type>quick</type>
-          <iters>50</iters>
-        </solver>
-      </ode>
     </physics>
 
     <!-- ── Lighting ─────────────────────────────────────────────────────── -->
@@ -249,9 +251,14 @@
 
     <!-- ── Camera viewpoint (audience perspective) ──────────────────────── -->
     <gui fullscreen="0">
-      <camera name="audience_cam">
-        <pose>5.5 0 2.5 0 0.3 3.14159</pose>
-      </camera>
+      <plugin filename="GzScene3D" name="3D View">
+        <gz-gui>
+          <title>3D View</title>
+        </gz-gui>
+        <engine>ogre2</engine>
+        <scene>scene</scene>
+        <camera_pose>5.5 0 2.5 0 0.3 3.14159</camera_pose>
+      </plugin>
     </gui>
 
   </world>
