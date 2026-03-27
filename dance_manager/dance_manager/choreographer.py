@@ -3,7 +3,7 @@ Layer 3 — Choreographic Structure (Platform-Agnostic)
 
 Provides high-level data structures (Motif, Phrase, Sequence) and an
 AI-powered choreographer that generates full sequences from natural language
-descriptions using the Anthropic Claude API.
+descriptions using the Google Gemini API.
 
 This layer is entirely platform-agnostic. It expresses choreographic INTENT
 (move names, energy, texture, timing) without knowing how any robot executes
@@ -66,7 +66,7 @@ Usage — AI choreography (platform-aware)
     client = DanceActionClient()
     platform = DiffDrivePlatform(twist_pub)
 
-    ai = AIChoreographer(api_key="sk-ant-...", platform=platform)
+    ai = AIChoreographer(api_key="YOUR_GEMINI_API_KEY", platform=platform)
     sequence = ai.generate(
         "A curious, exploratory dance: start cautious, then grow more playful "
         "and energetic, end with a graceful bow."
@@ -77,6 +77,7 @@ Usage — AI choreography (platform-aware)
 from __future__ import annotations
 
 import json
+import math
 import random
 import time
 from dataclasses import dataclass, field
@@ -213,7 +214,7 @@ class MotifMemory:
 
 # ── Sequence Runner ───────────────────────────────────────────────────────────
 
-def run_sequence(action_client, sequence: Sequence) -> None:
+def run_sequence(action_client, sequence: Sequence, stage_tracker=None) -> None:
     """Execute a Sequence by sending goals to the DanceActionServer.
 
     Iterates through every Phrase and Motif in order. For each Motif:
@@ -334,6 +335,9 @@ def run_sequence(action_client, sequence: Sequence) -> None:
                 memory.record(move_name)
                 move_index += 1
 
+                if stage_tracker is not None:
+                    stage_tracker.log_position(label=move_name)
+
         if phrase.gap_after > 0.0:
             time.sleep(phrase.gap_after)
 
@@ -352,17 +356,17 @@ def _mirror_name(move_name: str, to: str) -> str:
 # ── AI Choreographer ──────────────────────────────────────────────────────────
 
 class AIChoreographer:
-    """Generate Sequence objects from natural language using the Claude API.
+    """Generate Sequence objects from natural language using the Google Gemini API.
 
     Platform-aware: queries the loaded RobotPlatform for available moves
     and capabilities, so it generates choreography appropriate for any robot.
 
     Args:
-        api_key (str): Anthropic API key (sk-ant-...).
+        api_key (str): Google Gemini API key.
         platform: Optional RobotPlatform instance. If provided, the AI uses
                   the platform's available moves and description. If None,
                   falls back to the default differential drive move set.
-        model (str): Claude model ID.
+        model (str): Gemini model ID.
     """
 
     # Fallback move list when no platform is provided
@@ -472,20 +476,24 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
    — low energy + cloud = ethereal
 10. Never invent move names — only use the list above.
 11. Budget for ~3–8 seconds per move. Total sequence: 30–120 s unless specified.
-12. Return ONLY the JSON object. No extra text.\
+12. Return ONLY the JSON object. No extra text.
+{stage_constraints}\
 """
 
-    def __init__(self, api_key: str, platform=None, model: str = "claude-opus-4-5"):
+    def __init__(self, api_key: str, platform=None, model: str = "gemini-2.5-flash",
+                 stage_width: float = 0.0, stage_depth: float = 0.0):
         try:
-            import anthropic
+            from google import genai
         except ImportError as exc:
             raise ImportError(
-                "The 'anthropic' package is required for AIChoreographer. "
-                "Install it with: pip install anthropic"
+                "The 'google-genai' package is required for AIChoreographer. "
+                "Install it with: pip install google-genai"
             ) from exc
-        self._client = anthropic.Anthropic(api_key=api_key)
+        self._client = genai.Client(api_key=api_key)
         self._model = model
         self._platform = platform
+        self._stage_width = stage_width
+        self._stage_depth = stage_depth
 
     def _get_available_moves(self) -> list[str]:
         if self._platform is not None:
@@ -511,12 +519,76 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
             "and drive arcs, spirals, figure-eights, and flower curves."
         )
 
+    def _get_displacement_str(self) -> str:
+        """Format per-move displacement info for the AI prompt."""
+        if self._platform is None or not hasattr(self._platform, 'get_move_displacements'):
+            return ""
+        displacements = self._platform.get_move_displacements()
+        lines = []
+        for name, d in displacements.items():
+            parts = []
+            if d.get("dx", 0) != 0:
+                parts.append(f"fwd={d['dx']:+.1f}m")
+            if d.get("dy", 0) != 0:
+                parts.append(f"lat={d['dy']:+.1f}m")
+            if d.get("dtheta", 0) != 0:
+                deg = math.degrees(d["dtheta"])
+                parts.append(f"turn={deg:+.0f}deg")
+            if d.get("radius", 0) > 0:
+                parts.append(f"sweep={d['radius']:.1f}m")
+            if d.get("returns", False):
+                parts.append("returns-to-start")
+            if parts:
+                lines.append(f"  {name:28s} {', '.join(parts)}")
+            else:
+                lines.append(f"  {name:28s} in-place, no displacement")
+        return "\n".join(lines)
+
+    def _get_stage_constraints_str(self) -> str:
+        """Build the stage boundary section for the system prompt."""
+        if self._stage_width <= 0 and self._stage_depth <= 0:
+            return ""
+
+        displacement_table = self._get_displacement_str()
+
+        parts = ["\n━━ Stage boundary constraints ━━"]
+        if self._stage_width > 0 and self._stage_depth > 0:
+            parts.append(
+                f"Stage size: {self._stage_width:.1f}m wide x {self._stage_depth:.1f}m deep.")
+            parts.append(f"The robot starts at stage center (0, 0). Boundaries are:")
+            parts.append(f"  Forward/backward: +/- {self._stage_depth / 2:.1f}m")
+            parts.append(f"  Left/right:       +/- {self._stage_width / 2:.1f}m")
+        elif self._stage_width > 0:
+            parts.append(
+                f"Stage width: {self._stage_width:.1f}m. "
+                f"Left/right: +/- {self._stage_width / 2:.1f}m from center.")
+        else:
+            parts.append(
+                f"Stage depth: {self._stage_depth:.1f}m. "
+                f"Forward/backward: +/- {self._stage_depth / 2:.1f}m from center.")
+
+        if displacement_table:
+            parts.append("")
+            parts.append("Approximate displacement per move (at nominal energy):")
+            parts.append(displacement_table)
+
+        parts.append("")
+        parts.append("IMPORTANT: Mentally track the robot's cumulative (x, y) position as you "
+                      "build the sequence.")
+        parts.append("After a heading change (e.g., Spin90CW), forward moves go in the NEW "
+                      "heading direction.")
+        parts.append("Do not plan moves that would take the robot beyond the stage boundaries.")
+        parts.append("Prefer in-place and returning moves when near the edges.")
+        parts.append("If unsure, use smaller moves (Inch over Step, Step over Roll/Slalom).")
+
+        return "\n".join(parts)
+
     def generate(self, description: str, max_retries: int = 2) -> Sequence:
         """Generate a Sequence from a natural language choreography description.
 
         Args:
             description: Human description of the desired dance.
-            max_retries: How many times to ask Claude to fix invalid JSON.
+            max_retries: How many times to ask Gemini to fix invalid JSON.
 
         Returns:
             A populated Sequence dataclass.
@@ -524,36 +596,38 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
         Raises:
             ValueError: If the response cannot be parsed after max_retries.
         """
+        from google.genai import types
+
         system = self.SYSTEM_PROMPT_TEMPLATE.format(
             platform_description=self._get_platform_description(),
             move_list=self._get_move_list_str(),
             texture_options=self.TEXTURE_OPTIONS,
             modifier_schema=self.MODIFIER_SCHEMA,
+            stage_constraints=self._get_stage_constraints_str(),
         )
-        messages = [{"role": "user", "content": description}]
+        contents = [description]
 
         for attempt in range(max_retries + 1):
-            response = self._client.messages.create(
+            response = self._client.models.generate_content(
                 model=self._model,
-                max_tokens=4096,
-                system=system,
-                messages=messages,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system,
+                    max_output_tokens=4096,
+                ),
             )
-            raw = response.content[0].text.strip()
+            raw = response.text.strip()
 
             try:
                 data = self._parse_json(raw)
                 return self._dict_to_sequence(data)
             except (json.JSONDecodeError, KeyError, ValueError) as exc:
                 if attempt < max_retries:
-                    messages.append({"role": "assistant", "content": raw})
-                    messages.append({
-                        "role": "user",
-                        "content": (
-                            f"That response was invalid: {exc}. "
-                            "Please return only the JSON object, no other text."
-                        ),
-                    })
+                    contents.append(raw)
+                    contents.append(
+                        f"That response was invalid: {exc}. "
+                        "Please return only the JSON object, no other text."
+                    )
                 else:
                     raise ValueError(
                         f"Could not parse AI response after {max_retries} retries: {exc}\n"
@@ -639,7 +713,7 @@ def main():
     Usage (after building the package):
         ros2 run dance_manager choreographer "An excited celebratory dance"
 
-    Set the ANTHROPIC_API_KEY environment variable before running, or edit
+    Set the GOOGLE_API_KEY environment variable before running, or edit
     the api_key argument below.
 
     Pass --dry-run to print the plan without executing on the robot.
@@ -654,17 +728,25 @@ def main():
                         help="Natural language choreography description")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print the generated sequence without executing")
-    parser.add_argument("--model", default="claude-opus-4-5",
-                        help="Claude model ID")
+    parser.add_argument("--model", default="gemini-2.5-flash",
+                        help="Gemini model ID")
+    parser.add_argument("--stage-width", type=float, default=0.0,
+                        help="Stage width [m]. 0 = no boundary constraint.")
+    parser.add_argument("--stage-depth", type=float, default=0.0,
+                        help="Stage depth [m]. 0 = no boundary constraint.")
     args = parser.parse_args()
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    api_key = os.environ.get("GOOGLE_API_KEY", "")
     if not api_key:
-        print("Error: set the ANTHROPIC_API_KEY environment variable.", file=sys.stderr)
+        print("Error: set the GOOGLE_API_KEY environment variable.", file=sys.stderr)
         sys.exit(1)
 
+    if args.stage_width > 0 or args.stage_depth > 0:
+        print(f"Stage bounds: {args.stage_width}m wide x {args.stage_depth}m deep")
+
     print(f"Generating choreography for: {args.description!r}")
-    ai = AIChoreographer(api_key=api_key, model=args.model)
+    ai = AIChoreographer(api_key=api_key, model=args.model,
+                         stage_width=args.stage_width, stage_depth=args.stage_depth)
     sequence = ai.generate(args.description)
 
     print("\n" + ai.describe(sequence))
@@ -678,9 +760,18 @@ def main():
 
     rclpy.init()
     client = DanceActionClient()
+
+    stage_tracker = None
+    if args.stage_width > 0 or args.stage_depth > 0:
+        from dance_manager.stage_tracker import StageTracker
+        stage_tracker = StageTracker(
+            client, stage_width=args.stage_width, stage_depth=args.stage_depth)
+
     try:
-        run_sequence(client, sequence)
+        run_sequence(client, sequence, stage_tracker=stage_tracker)
     finally:
+        if stage_tracker:
+            stage_tracker.destroy()
         client.destroy_node()
         rclpy.shutdown()
 

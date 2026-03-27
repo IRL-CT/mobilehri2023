@@ -74,6 +74,20 @@ class DanceActionServer(Node):
             f'({len(self._platform.get_available_moves())} moves available)'
         )
 
+        # Stage tracking (optional)
+        self.declare_parameter('stage_width', 0.0)
+        self.declare_parameter('stage_depth', 0.0)
+        stage_width = self.get_parameter('stage_width').get_parameter_value().double_value
+        stage_depth = self.get_parameter('stage_depth').get_parameter_value().double_value
+
+        self._stage_tracker = None
+        if stage_width > 0 or stage_depth > 0:
+            from dance_manager.stage_tracker import StageTracker
+            self._stage_tracker = StageTracker(
+                self, stage_width=stage_width, stage_depth=stage_depth)
+            self.get_logger().info(
+                f'Stage tracker active: {stage_width}m x {stage_depth}m')
+
         self._action_server = ActionServer(
             self,
             Dance,
@@ -128,6 +142,8 @@ class DanceActionServer(Node):
                 self.get_logger().info(f'Dance move {requested_move} was cancelled')
             else:
                 self.get_logger().info(f'Executed dance move: {requested_move}')
+                if self._stage_tracker is not None:
+                    self._stage_tracker.log_position(label=requested_move)
         else:
             self.get_logger().warn(
                 f'Unknown dance move: {requested_move}. '

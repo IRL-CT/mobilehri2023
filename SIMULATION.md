@@ -79,8 +79,15 @@ source ~/dancerobot_ws/install/setup.bash
 ros2 action send_goal /dance dance_interfaces/action/Dance \
     "{dance_move: 'SpinOnAxis'}"
 
-# Run the choreographer
-ros2 run dance_manager choreographer
+# Run the AI choreographer (requires Google Gemini API key)
+export GOOGLE_API_KEY="your-key-here"
+ros2 run dance_manager choreographer "A curious, exploratory dance"
+
+# Dry-run (prints the plan without executing on the robot)
+ros2 run dance_manager choreographer --dry-run "An excited celebratory dance"
+
+# Use a different Gemini model
+ros2 run dance_manager choreographer --model gemini-2.5-pro "A dramatic performance"
 ```
 
 ## Launch Arguments

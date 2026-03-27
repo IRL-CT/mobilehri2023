@@ -203,6 +203,26 @@ class RobotPlatform(ABC):
         """
         return None
 
+    def get_move_displacements(self) -> dict[str, dict]:
+        """Return estimated displacement info for each move.
+
+        Returns a dict mapping move names to displacement descriptors:
+        {
+            "MoveName": {
+                "dx": float,      # forward displacement [m] (+ = forward)
+                "dy": float,      # lateral displacement [m] (+ = left)
+                "dtheta": float,  # heading change [rad] (+ = CCW)
+                "radius": float,  # max distance from start during move [m]
+                "returns": bool,  # True if move returns near its start position
+            }
+        }
+
+        Values are approximate (open-loop). Used by AI choreographer for
+        planning-level boundary awareness, not for precise navigation.
+        """
+        return {name: {"dx": 0.0, "dy": 0.0, "dtheta": 0.0, "radius": 0.0, "returns": True}
+                for name in self.get_available_moves()}
+
     def get_move_categories(self) -> dict[str, list[str]]:
         """Return moves organized by category for AI choreographer prompts.
 

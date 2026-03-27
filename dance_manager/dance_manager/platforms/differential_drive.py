@@ -244,6 +244,65 @@ class DiffDrivePlatform(RobotPlatform):
             return "GlideForward"   # flowing with forward drift
         return "GlideBackward"      # flowing with backward drift
 
+    def get_move_displacements(self) -> dict[str, dict]:
+        """Approximate displacement per move at nominal energy.
+
+        Derived from dance_moves.py default parameters. Values are rough
+        estimates for the AI choreographer to reason about stage boundaries.
+        """
+        pi = 3.14159
+        return {
+            # Social gestures — in-place
+            "Greeting":             {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.0, "returns": True},
+            "PeekLeftRight":        {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.0, "returns": True},
+            "Bow":                  {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.3, "returns": True},
+            # Linear steps
+            "InchForward":          {"dx": 0.2,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.2, "returns": False},
+            "StepForward":          {"dx": 0.5,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.5, "returns": False},
+            "RollForward":          {"dx": 1.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.0, "returns": False},
+            "InchBackward":         {"dx": -0.2, "dy": 0.0,  "dtheta": 0.0,    "radius": 0.2, "returns": False},
+            "StepBackward":         {"dx": -0.5, "dy": 0.0,  "dtheta": 0.0,    "radius": 0.5, "returns": False},
+            "GlideForward":         {"dx": 0.6,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.6, "returns": False},
+            "GlideBackward":        {"dx": -0.6, "dy": 0.0,  "dtheta": 0.0,    "radius": 0.6, "returns": False},
+            # Expressive in-place
+            "Shimmy":               {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.0, "returns": True},
+            "ShimmyFast":           {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.0, "returns": True},
+            "Pulse":                {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.1, "returns": True},
+            "Vibrate":              {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.05, "returns": True},
+            # Pivots and taps
+            "TapOnLeft":            {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.1, "returns": True},
+            "TapOnRight":           {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.1, "returns": True},
+            "PirouetteLeft":        {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.6, "returns": True},
+            "PirouetteRight":       {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.6, "returns": True},
+            # Axis spins
+            "SpinClockwise":        {"dx": 0.0,  "dy": 0.0,  "dtheta": -2*pi,  "radius": 0.0, "returns": True},
+            "SpinCounterClockwise": {"dx": 0.0,  "dy": 0.0,  "dtheta": 2*pi,   "radius": 0.0, "returns": True},
+            "Spin180CW":            {"dx": 0.0,  "dy": 0.0,  "dtheta": -pi,    "radius": 0.0, "returns": False},
+            "Spin180CCW":           {"dx": 0.0,  "dy": 0.0,  "dtheta": pi,     "radius": 0.0, "returns": False},
+            "Spin90CW":             {"dx": 0.0,  "dy": 0.0,  "dtheta": -pi/2,  "radius": 0.0, "returns": False},
+            "Spin90CCW":            {"dx": 0.0,  "dy": 0.0,  "dtheta": pi/2,   "radius": 0.0, "returns": False},
+            "Spin15CW":             {"dx": 0.0,  "dy": 0.0,  "dtheta": -pi/12, "radius": 0.0, "returns": False},
+            "Spin15CCW":            {"dx": 0.0,  "dy": 0.0,  "dtheta": pi/12,  "radius": 0.0, "returns": False},
+            # Weaving paths
+            "ZigZaggingForward":    {"dx": 0.8,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.0, "returns": False},
+            "ZigZaggingBackward":   {"dx": -0.8, "dy": 0.0,  "dtheta": 0.0,    "radius": 1.0, "returns": False},
+            "SlalomForward":        {"dx": 2.4,  "dy": 0.0,  "dtheta": 0.0,    "radius": 2.5, "returns": False},
+            "SlalomBackward":       {"dx": -2.4, "dy": 0.0,  "dtheta": 0.0,    "radius": 2.5, "returns": False},
+            "WagWalk":              {"dx": 1.5,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.5, "returns": False},
+            # Arc / circle patterns
+            "ArcLeft":              {"dx": 0.0,  "dy": 1.0,  "dtheta": pi,     "radius": 1.0, "returns": False},
+            "ArcRight":             {"dx": 0.0,  "dy": -1.0, "dtheta": -pi,    "radius": 1.0, "returns": False},
+            "TeacupSpinLeft":       {"dx": 0.0,  "dy": 1.0,  "dtheta": 2*pi,   "radius": 1.0, "returns": False},
+            "TeacupSpinRight":      {"dx": 0.0,  "dy": -1.0, "dtheta": -2*pi,  "radius": 1.0, "returns": False},
+            "TeacupCircleLeft":     {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.0, "returns": True},
+            "TeacupCircleRight":    {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.0, "returns": True},
+            # Complex paths
+            "SpiralLeft":           {"dx": 0.5,  "dy": 0.5,  "dtheta": 2*pi,   "radius": 1.5, "returns": False},
+            "SpiralRight":          {"dx": 0.5,  "dy": -0.5, "dtheta": -2*pi,  "radius": 1.5, "returns": False},
+            "FigureEight":          {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.0, "returns": True},
+            "FlowerDance":          {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.6, "returns": True},
+        }
+
     def get_move_categories(self) -> dict[str, list[str]]:
         return {
             "social":     ["Greeting", "PeekLeftRight", "Bow"],

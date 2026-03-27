@@ -76,6 +76,14 @@ ros2 action send_goal /dance dance_interfaces/action/Dance '{"dance_move":"ZigZa
 ```
 The robot should start walking forward.
 
+### AI Choreographer
+Generate full dance sequences from natural language using Google Gemini:
+```bash
+export GOOGLE_API_KEY="your-key-here"
+ros2 run dance_manager choreographer "A playful, curious exploration"
+```
+Use `--dry-run` to preview without executing. See [docs/dance_manager.md](docs/dance_manager.md) for full details.
+
 To add more moves, check out docs/dance_manager.md
 
 ---
