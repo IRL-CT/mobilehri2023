@@ -11,7 +11,7 @@ password: far1@FAR
 3. ODrive Calibration:
 - Make sure both wheels are off the ground and free to spin. (Put a book or a brick under the chassis).
 
-- UPDATE (Nov 21st): I added a calibration script `startup_calibration.py`. You can just run that script from ~/dancebot_ws/src/mobilehri2023/ and jump to next module.
+- UPDATE (Nov 21st): I added a calibration script `startup_calibration.py`. You can just run that script from ~/dancerobot_ws/src/mobilehri2023/ and jump to next module.
 - Open a terminal
 ```bash
 $ odrivetool #(enter the odrive command interface)
@@ -43,13 +43,13 @@ quit()
 
 In your terminal:
 ```bash
-$ cd ~/dancebot_ws/src/mobilehri2023
+$ cd ~/dancerobot_ws/src/mobilehri2023
 $ git pull # pull the latest changes. You can safely ignore local edits.
 $ git checkout dancerobot
 ```
 
 ```bash
-$ cd ~/dancebot_ws
+$ cd ~/dancerobot_ws
 $ rm -r build/ install/ log/ # remove previously built packages, start with a clean start
 $ colcon build --symlink-install 
 # The symlink-install flag prevents rebuilding the package every time we make a small edit. 
@@ -57,7 +57,7 @@ $ source install/setup.bash
 ```
 
 #### It is important that you source in every terminal you open:
-source ~/dancebot_ws/install/setup.bash
+source ~/dancerobot_ws/install/setup.bash
 
 ### Start dance server
 ```bash
@@ -72,7 +72,7 @@ ros2 launch mobile_robot_control mobile_robot_launch.py
 Now, the robot starts listening to the command to follow! You can test it with the following command:
 ```bash
 # in a seperate terminal
-ros2 action send_goal /dance dance_interfaces/action/Dance '{"dance_move":"ZigZaggingForward"}'
+ros2 action send_goal /dance dance_interfaces/action/Dance '{"dance_move":"Zigzag", "params":"{\"direction\":\"forward\"}"}'
 ```
 The robot should start walking forward.
 
@@ -103,7 +103,7 @@ Make sure you have completed the [Build](#launch-dancing-module) steps and sourc
 6. Calibration
 ```bash
 # In Hoverboard RPi
-cd /home/dancerobot/dancebot_ws/src/mobilehri2023
+cd /home/dancerobot/dancerobot_ws/src/mobilehri2023
 python3 startup_calibration.py
 ```
 

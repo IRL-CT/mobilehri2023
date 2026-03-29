@@ -1,0 +1,171 @@
+{
+  "phrases": [
+    {
+      "motifs": [
+        {
+          "move": "Glance",
+          "params": {},
+          "energy": 0.3,
+          "texture": "cloud",
+          "gap_before": 0.8,
+          "modifier": null,
+          "annotation": "A soft, unhurried look around."
+        },
+        {
+          "move": "Pulse",
+          "params": {},
+          "energy": 0.2,
+          "texture": "honey",
+          "gap_before": 0.6,
+          "modifier": null,
+          "annotation": "Subtle, internal rhythmic movement."
+        },
+        {
+          "move": "Bow",
+          "params": {},
+          "energy": 0.3,
+          "texture": "cloud",
+          "gap_before": 0.8,
+          "modifier": null,
+          "annotation": "A gentle acknowledgment of the space."
+        }
+      ],
+      "name": "Gentle Awakening",
+      "intent": "To softly introduce presence and acknowledge the environment without haste.",
+      "gap_after": 1.2
+    },
+    {
+      "motifs": [
+        {
+          "move": "Glide",
+          "params": {
+            "direction": "forward"
+          },
+          "energy": 0.4,
+          "texture": "ice",
+          "gap_before": 0.8,
+          "modifier": null,
+          "annotation": "Smooth forward motion."
+        },
+        {
+          "move": "Arc",
+          "params": {
+            "direction": "right",
+            "angle": 90
+          },
+          "energy": 0.5,
+          "texture": "honey",
+          "gap_before": 0.6,
+          "modifier": null,
+          "annotation": "Gentle curve to the right."
+        },
+        {
+          "move": "TeacupCircle",
+          "params": {},
+          "energy": 0.4,
+          "texture": "cloud",
+          "gap_before": 1,
+          "modifier": null,
+          "annotation": "Softly rotating in place."
+        },
+        {
+          "move": "Glide",
+          "params": {
+            "direction": "backward"
+          },
+          "energy": 0.4,
+          "texture": "ice",
+          "gap_before": 0.8,
+          "modifier": null,
+          "annotation": "Gliding back along its path."
+        }
+      ],
+      "name": "Mellow Drift",
+      "intent": "Exploring fluid, unhurried paths, a feeling of effortless motion.",
+      "gap_after": 1.5
+    },
+    {
+      "motifs": [
+        {
+          "move": "FigureEight",
+          "params": {},
+          "energy": 0.3,
+          "texture": "honey",
+          "gap_before": 1,
+          "modifier": null,
+          "annotation": "Smooth, continuous looping in place."
+        },
+        {
+          "move": "Shimmy",
+          "params": {},
+          "energy": 0.2,
+          "texture": "cloud",
+          "gap_before": 0.6,
+          "modifier": {
+            "type": "alternate",
+            "other_move": "Pulse",
+            "n": 3,
+            "gap": 0.5
+          },
+          "annotation": "Subtle side-to-side with alternating pulse."
+        },
+        {
+          "move": "Vibrate",
+          "params": {},
+          "energy": 0.1,
+          "texture": "neutral",
+          "gap_before": 0.8,
+          "modifier": null,
+          "annotation": "A very subtle, internal tremor."
+        }
+      ],
+      "name": "Reflective Flow",
+      "intent": "A sequence of continuous, soft movements, mirroring introspection.",
+      "gap_after": 1.2
+    },
+    {
+      "motifs": [
+        {
+          "move": "Spin",
+          "params": {
+            "angle": -90
+          },
+          "energy": 0.3,
+          "texture": "cloud",
+          "gap_before": 1,
+          "modifier": null,
+          "annotation": "A gentle quarter turn clockwise."
+        },
+        {
+          "move": "Bow",
+          "params": {},
+          "energy": 0.2,
+          "texture": "cloud",
+          "gap_before": 0.8,
+          "modifier": null,
+          "annotation": "Final, slow bow of tranquility."
+        },
+        {
+          "move": "Pulse",
+          "params": {},
+          "energy": 0.1,
+          "texture": "honey",
+          "gap_before": 1.5,
+          "modifier": {
+            "type": "decay",
+            "n": 3,
+            "factor": 0.5
+          },
+          "annotation": "Fading internal rhythm."
+        }
+      ],
+      "name": "Soft Landing",
+      "intent": "To gracefully bring the sequence to a close, a sense of peaceful resolution.",
+      "gap_after": 2
+    }
+  ],
+  "title": "Chill Groove",
+  "tempo_bpm": 80,
+  "mood": "Relaxed, contemplative",
+  "description": "A sequence designed for unwinding, focusing on smooth transitions, gentle gestures, and a serene presence."
+}

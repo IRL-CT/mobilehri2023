@@ -37,16 +37,9 @@ Quick sanity check to verify the URDF looks correct:
 ros2 launch chair_dance_sim view_robot_launch.py
 ```
 
-## Start Dance Server
-
-In a terminal, start the dance server first:
-```bash
-ros2 launch dance_manager dance_server_launch.py
-```
-
 ## Run Full Simulation
 
-In a separate terminal:
+The simulation launch already includes the dance server — do **not** also run `dance_server_launch.py` separately, or you will get duplicate action server warnings.
 
 **Option A — With Gazebo GUI:**
 ```bash
@@ -77,7 +70,7 @@ source ~/dancerobot_ws/install/setup.bash
 
 # Single move
 ros2 action send_goal /dance dance_interfaces/action/Dance \
-    "{dance_move: 'SpinOnAxis'}"
+    "{dance_move: 'Spin', params: '{\"angle\": 360}'}"
 
 # Run the AI choreographer (requires Google Gemini API key)
 export GOOGLE_API_KEY="your-key-here"

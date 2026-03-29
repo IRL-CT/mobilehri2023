@@ -17,7 +17,7 @@ Usage:
 
 Then send dance commands:
   ros2 action send_goal /dance dance_interfaces/action/Dance \
-      "{dance_move: 'SpinOnAxis', energy: 0.7, texture: 'staccato'}"
+      "{dance_move: 'Spin', params: '{\"angle\": 360}', energy: 0.7, texture: 'staccato'}"
 """
 
 import os
@@ -155,7 +155,19 @@ def generate_launch_description():
         }],
     )
 
-    # 7. Optional RViz
+    # 7. Dance visualizer (stage boundary, path trail, move labels in RViz/Gazebo)
+    dance_visualizer = Node(
+        package='dance_manager',
+        executable='dance_visualizer',
+        name='dance_visualizer',
+        output='screen',
+        parameters=[{
+            'stage_width': 6.0,
+            'stage_depth': 8.0,
+        }],
+    )
+
+    # 8. Optional RViz
     rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -183,6 +195,7 @@ def generate_launch_description():
                 gz_bridge,
                 twist_mux,
                 dance_server,
+                dance_visualizer,
             ],
         ),
 

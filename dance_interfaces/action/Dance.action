@@ -2,6 +2,7 @@
 string dance_move
 float32 energy 0.5
 string texture neutral
+string params
 ---
 # Result
 int32 result_code

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dance Studio</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header Bar -->
+        <header id="header">
+            <h1>Dance Studio</h1>
+            <div class="header-actions">
+                <button id="btn-save" title="Save choreography">Save</button>
+                <select id="load-dropdown" title="Load choreography">
+                    <option value="">Load...</option>
+                </select>
+            </div>
+        </header>
+
+        <!-- Left Sidebar -->
+        <aside id="sidebar">
+            <section class="panel">
+                <h3>Sequence Info</h3>
+                <div id="seq-info">
+                    <div class="info-row"><span class="label">Title:</span> <span id="seq-title">--</span></div>
+                    <div class="info-row"><span class="label">Mood:</span> <span id="seq-mood">--</span></div>
+                    <div class="info-row"><span class="label">Tempo:</span> <span id="seq-tempo">--</span></div>
+                    <div class="info-row"><span class="label">Moves:</span></div>
+                    <pre id="seq-description" class="seq-desc">No sequence loaded.</pre>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h3>AI Generate</h3>
+                <textarea id="ai-prompt" rows="4" placeholder="Describe the dance you want..."></textarea>
+                <div style="display:flex; gap:6px;">
+                    <button id="btn-generate" style="flex:1;">Generate Dance</button>
+                    <button id="btn-view-prompt" title="View the full AI prompt">Prompt</button>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h3>Parameters</h3>
+                <div class="param-group">
+                    <label for="slider-energy">Energy Scale: <span id="energy-value">1.0</span></label>
+                    <input type="range" id="slider-energy" min="0.1" max="2.0" step="0.05" value="1.0">
+                    <div class="slider-hints"><span>Gentle</span><span>Normal</span><span>Explosive</span></div>
+                </div>
+            </section>
+        </aside>
+
+        <!-- Main Stage Area -->
+        <main id="stage-area">
+            <div id="canvas-container">
+                <canvas id="stage-canvas" width="800" height="600"></canvas>
+                <span class="view-label">Top-down (live from Gazebo)</span>
+            </div>
+        </main>
+
+        <!-- Bottom Playback Bar -->
+        <div id="playback-bar">
+            <div class="playback-controls">
+                <button id="btn-play" title="Play on robot">&#9654; Play</button>
+                <button id="btn-stop" title="Stop">&#9632; Stop</button>
+                <button id="btn-reset-robot" title="Reset robot position">&#8634; Reset</button>
+                <span id="ros-status" class="status-dot disconnected" title="ROS connection">&#9679;</span>
+                <span id="time-display"></span>
+            </div>
+        </div>
+
+        <!-- Timeline Bar -->
+        <div id="timeline-bar">
+            <div id="timeline-segments"></div>
+            <div id="timeline-cursor"></div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden">
+        <div class="spinner"></div>
+        <p>Generating choreography...</p>
+    </div>
+
+    <!-- Prompt Modal -->
+    <div id="prompt-modal" class="hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>AI System Prompt</h3>
+                <button id="btn-close-prompt">&times;</button>
+            </div>
+            <pre id="prompt-text"></pre>
+        </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>

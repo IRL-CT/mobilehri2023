@@ -597,7 +597,7 @@ def slalom(
 def spin_on_axis(
     twist_pub,
     rotations=1.0,
-    spin_duration=5.0,
+    spin_duration=8.0,
     clockwise=False,
     cmd_dt=0.05,
     **kwargs
@@ -617,6 +617,11 @@ def spin_on_axis(
         return
 
     w_mag = 2.0 * math.pi * rotations / spin_duration
+    # Clamp angular velocity to reduce wheel slip in simulation
+    max_w = 1.5  # rad/s
+    if w_mag > max_w:
+        spin_duration = 2.0 * math.pi * rotations / max_w
+        w_mag = max_w
     w = -w_mag if clockwise else w_mag
 
     t = Twist()

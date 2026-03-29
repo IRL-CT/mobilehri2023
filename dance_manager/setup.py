@@ -29,10 +29,8 @@ setup(
         'console_scripts': [
             'dance_action_server = dance_manager.dance_server:main',
             'dance_action_client = dance_manager.dance_client:main',
-            'dance_client_wander_left = dance_manager.dance_client_wander_left:main',
-            'dance_client_wander_right = dance_manager.dance_client_wander_right:main',
-            'dance_client_floaty = dance_manager.dance_client_floaty:main',
             'choreographer = dance_manager.choreographer:main',
+            'dance_visualizer = dance_manager.dance_visualizer:main',
         ],
     },
 )

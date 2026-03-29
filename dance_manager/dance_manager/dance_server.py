@@ -129,10 +129,21 @@ class DanceActionServer(Node):
         # Disable default motion while executing action
         self.action_active = True
 
+        # Parse move-specific params (JSON string → dict)
+        params = {}
+        if goal_handle.request.params:
+            try:
+                import json
+                params = json.loads(goal_handle.request.params)
+            except (json.JSONDecodeError, TypeError):
+                self.get_logger().warn(
+                    f'Invalid params JSON: {goal_handle.request.params!r}, using defaults')
+
         # Build MoveContext from action goal fields
         context = MoveContext(
             energy=goal_handle.request.energy,
             texture=self._parse_texture(goal_handle.request.texture),
+            params=params,
         )
 
         # Dispatch to platform

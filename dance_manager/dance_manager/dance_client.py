@@ -12,11 +12,13 @@ class DanceActionClient(Node):
         super().__init__('dance_action_client')
         self._action_client = ActionClient(self, Dance, 'dance')
 
-    def send_goal(self, dance_move, energy=0.5, texture="neutral"):
+    def send_goal(self, dance_move, energy=0.5, texture="neutral", params=None):
+        import json as _json
         goal_msg = Dance.Goal()
         goal_msg.dance_move = dance_move
         goal_msg.energy = float(energy)
         goal_msg.texture = str(texture)
+        goal_msg.params = _json.dumps(params) if params else ""
 
         self._action_client.wait_for_server()
 
@@ -25,12 +27,14 @@ class DanceActionClient(Node):
 
         return send_goal_future
 
-    def send_goal_and_wait(self, dance_move, energy=0.5, texture="neutral"):
+    def send_goal_and_wait(self, dance_move, energy=0.5, texture="neutral", params=None):
         """Send a goal and wait for completion with proper result handling."""
+        import json as _json
         goal_msg = Dance.Goal()
         goal_msg.dance_move = dance_move
         goal_msg.energy = float(energy)
         goal_msg.texture = str(texture)
+        goal_msg.params = _json.dumps(params) if params else ""
 
         self._action_client.wait_for_server()
 
@@ -61,41 +65,41 @@ def main(args=None):
 
     action_client = DanceActionClient()
     
-    # Greeting (6 seconds)
-    action_client.send_goal_and_wait("Greeting")
+    # Glance (6 seconds)
+    action_client.send_goal_and_wait("Glance")
 
-    # Tap 4 times (4 seconds)
+    # Tap right 4 times (4 seconds)
     for _ in range(4):
-        action_client.send_goal_and_wait("TapOnRight")
-    
+        action_client.send_goal_and_wait("Tap", params={"side": "right"})
+
     # Slalom backward (4 seconds)
-    action_client.send_goal_and_wait("SlalomBackward")
-    
+    action_client.send_goal_and_wait("Slalom", params={"direction": "backward"})
+
     # Pirouette left (3 seconds)
-    action_client.send_goal_and_wait("PirouetteLeft")
+    action_client.send_goal_and_wait("Pirouette", params={"side": "left"})
 
     # Slalom forward (4 seconds)
-    action_client.send_goal_and_wait("SlalomForward")
+    action_client.send_goal_and_wait("Slalom", params={"direction": "forward"})
 
     # Pirouette right (3 seconds)
-    action_client.send_goal_and_wait("PirouetteRight")
+    action_client.send_goal_and_wait("Pirouette", params={"side": "right"})
 
-    # Slalom backward (4 seconds)
-    action_client.send_goal_and_wait("ZigZaggingBackward")
+    # Zigzag backward (4 seconds)
+    action_client.send_goal_and_wait("Zigzag", params={"direction": "backward"})
 
     # Teacup spin right (3 seconds)
-    action_client.send_goal_and_wait("TeacupSpinRight")
+    action_client.send_goal_and_wait("TeacupSpin", params={"side": "right"})
 
-    # Tap 4 times (4 seconds)
+    # Tap right 4 times (4 seconds)
     for _ in range(4):
-        action_client.send_goal_and_wait("TapOnRight")
+        action_client.send_goal_and_wait("Tap", params={"side": "right"})
 
     # Teacup spin left (3 seconds)
-    action_client.send_goal_and_wait("TeacupSpinLeft")
+    action_client.send_goal_and_wait("TeacupSpin", params={"side": "left"})
 
-    # Tap 4 times (4 seconds)
+    # Tap left 4 times (4 seconds)
     for _ in range(4):
-        action_client.send_goal_and_wait("TapOnLeft")
+        action_client.send_goal_and_wait("Tap", params={"side": "left"})
     
     action_client.destroy_node()
     rclpy.shutdown()

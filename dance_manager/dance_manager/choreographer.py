@@ -41,12 +41,12 @@ Usage — programmatic
         mood="playful",
         phrases=[
             Phrase(name="intro", intent="greet the audience", motifs=[
-                Motif("Greeting", energy=0.6, texture="neutral"),
+                Motif("Glance", energy=0.6, texture="neutral"),
                 Motif("WagWalk", energy=0.5, gap_before=0.3),
             ]),
             Phrase(name="climax", gap_after=1.0, motifs=[
-                Motif("TapOnRight", modifier=seq_crescendo(n=4), annotation="build up"),
-                Motif("SpinCounterClockwise", energy=0.9, texture="staccato"),
+                Motif("Tap", params={"side": "right"}, modifier=seq_crescendo(n=4), annotation="build up"),
+                Motif("Spin", params={"angle": 360}, energy=0.9, texture="staccato"),
             ]),
             Phrase(name="outro", motifs=[
                 Motif("Bow", energy=0.4, texture="honey"),
@@ -91,7 +91,9 @@ class Motif:
     """The atomic unit of choreography: one named move with expressive intent.
 
     Attributes:
-        move: A move name recognised by the RobotPlatform (e.g. "TapOnRight").
+        move: A primitive move name recognised by the RobotPlatform (e.g. "Spin").
+        params: Move-specific parameters (e.g. {"angle": 90}, {"direction": "forward"},
+                {"side": "left"}). Passed to the platform for interpretation.
         energy: Expressive intensity [0.0-1.0]. Used to scale motion and gaps.
         texture: Movement quality preset name ("neutral", "honey", "staccato",
                  "ice", "cloud", "magnet"). Passed to the platform for
@@ -102,6 +104,7 @@ class Motif:
         annotation: Human-readable note shown in logs. Has no effect on motion.
     """
     move: str
+    params: dict = field(default_factory=dict)
     energy: float = 0.5
     texture: str = "neutral"
     gap_before: float = 0.0
@@ -156,10 +159,10 @@ class MotifMemory:
     Usage:
         memory = MotifMemory()
         # Record moves as they execute
-        memory.record("TapOnRight")
-        memory.record("SpinClockwise")
+        memory.record("Tap")
+        memory.record("Spin")
         # Get a signature move to recall
-        sig = memory.get_signature_move()  # → "TapOnRight" (most used)
+        sig = memory.get_signature_move()  # → "Tap" (most used)
         # Check if it's time to recall
         if memory.should_recall(current_index=10, total_moves=20):
             # Insert the signature move
@@ -239,28 +242,29 @@ def run_sequence(action_client, sequence: Sequence, stage_tracker=None) -> None:
     move_index = 0
 
     def _expand(motif: Motif) -> list:
-        """Expand one Motif into a list of (move_name, gap_before, energy, texture) tuples."""
+        """Expand one Motif into a list of (move_name, params, gap_before, energy, texture) tuples."""
         mod = motif.modifier
         base_gap = motif.gap_before
         energy = motif.energy
         texture = motif.texture
+        params = motif.params
 
         if mod is None:
-            return [(motif.move, base_gap, energy, texture)]
+            return [(motif.move, params, base_gap, energy, texture)]
 
         mtype = mod.get("type", "")
 
         if mtype == "repeat":
             n = mod.get("n", 1)
             gap = mod.get("gap", 0.0)
-            return [(motif.move, base_gap if i == 0 else gap, energy, texture) for i in range(n)]
+            return [(motif.move, params, base_gap if i == 0 else gap, energy, texture) for i in range(n)]
 
         if mtype == "mirror":
             gap = mod.get("gap", 0.0)
-            left_name = _mirror_name(motif.move, to="left")
-            right_name = _mirror_name(motif.move, to="right")
-            return [(left_name, base_gap, energy, texture),
-                    (right_name, gap, energy, texture)]
+            left_params = {**params, "side": "left"}
+            right_params = {**params, "side": "right"}
+            return [(motif.move, left_params, base_gap, energy, texture),
+                    (motif.move, right_params, gap, energy, texture)]
 
         if mtype == "decay":
             n = mod.get("n", 3)
@@ -268,7 +272,7 @@ def run_sequence(action_client, sequence: Sequence, stage_tracker=None) -> None:
             pairs = []
             gap = base_gap
             for i in range(n):
-                pairs.append((motif.move, max(0.0, gap), energy, texture))
+                pairs.append((motif.move, params, max(0.0, gap), energy, texture))
                 gap += beat * (1.0 - factor)
             return pairs
 
@@ -278,22 +282,23 @@ def run_sequence(action_client, sequence: Sequence, stage_tracker=None) -> None:
             pairs = []
             gap = base_gap + beat * (n - 1) * (factor - 1.0) * 0.5
             for i in range(n):
-                pairs.append((motif.move, max(0.0, gap), energy, texture))
+                pairs.append((motif.move, params, max(0.0, gap), energy, texture))
                 gap -= beat * (factor - 1.0)
             return pairs
 
         if mtype == "tension":
             hold = mod.get("hold_duration", 1.0)
-            return [(motif.move, base_gap + hold, energy, texture)]
+            return [(motif.move, params, base_gap + hold, energy, texture)]
 
         if mtype == "alternate":
             other = mod.get("other_move", motif.move)
+            other_params = mod.get("other_params", {})
             n = mod.get("n", 2)
             gap = mod.get("gap", 0.0)
             pairs = []
             for i in range(n):
-                pairs.append((motif.move, base_gap if i == 0 else gap, energy, texture))
-                pairs.append((other, gap, energy, texture))
+                pairs.append((motif.move, params, base_gap if i == 0 else gap, energy, texture))
+                pairs.append((other, other_params, gap, energy, texture))
             return pairs
 
         if mtype == "asymmetric_pause":
@@ -303,19 +308,16 @@ def run_sequence(action_client, sequence: Sequence, stage_tracker=None) -> None:
             pairs = []
             for i in range(n):
                 pause = short if i % 2 == 0 else long_
-                pairs.append((motif.move, base_gap if i == 0 else pause, energy, texture))
+                pairs.append((motif.move, params, base_gap if i == 0 else pause, energy, texture))
             return pairs
 
         # Unknown modifier type — fall back to bare move
-        return [(motif.move, base_gap, energy, texture)]
+        return [(motif.move, params, base_gap, energy, texture)]
 
-    def _send_goal(move_name, energy=0.5, texture="neutral"):
-        """Send goal with backward-compatible signature detection."""
-        try:
-            action_client.send_goal_and_wait(move_name, energy, texture)
-        except TypeError:
-            # Backward compat: old clients only accept move_name
-            action_client.send_goal_and_wait(move_name)
+    def _send_goal(move_name, params=None, energy=0.5, texture="neutral"):
+        """Send goal with params support."""
+        action_client.send_goal_and_wait(move_name, energy, texture,
+                                         params=params or {})
 
     for phrase in sequence.phrases:
         if phrase.name:
@@ -323,15 +325,16 @@ def run_sequence(action_client, sequence: Sequence, stage_tracker=None) -> None:
             print(f"[Choreographer] Phrase: {phrase.name}{intent_str}")
         for motif in phrase.motifs:
             expanded = _expand(motif)
-            for move_name, gap, energy, texture in expanded:
+            for move_name, params, gap, energy, texture in expanded:
                 if gap > 0.0:
                     time.sleep(gap)
+                params_str = f" {params}" if params else ""
                 if motif.annotation:
-                    print(f"[Choreographer]   {move_name} (e={energy:.1f} t={texture})  # {motif.annotation}")
+                    print(f"[Choreographer]   {move_name}{params_str} (e={energy:.1f} t={texture})  # {motif.annotation}")
                 else:
-                    print(f"[Choreographer]   {move_name} (e={energy:.1f} t={texture})")
+                    print(f"[Choreographer]   {move_name}{params_str} (e={energy:.1f} t={texture})")
 
-                _send_goal(move_name, energy, texture)
+                _send_goal(move_name, params, energy, texture)
                 memory.record(move_name)
                 move_index += 1
 
@@ -340,17 +343,6 @@ def run_sequence(action_client, sequence: Sequence, stage_tracker=None) -> None:
 
         if phrase.gap_after > 0.0:
             time.sleep(phrase.gap_after)
-
-
-def _mirror_name(move_name: str, to: str) -> str:
-    """Replace Left/Right suffix in a move name with the requested side."""
-    cap = to.capitalize()
-    opposite = "Right" if cap == "Left" else "Left"
-    if move_name.endswith(opposite):
-        return move_name[: -len(opposite)] + cap
-    if move_name.endswith(cap):
-        return move_name
-    return move_name
 
 
 # ── AI Choreographer ──────────────────────────────────────────────────────────
@@ -371,25 +363,14 @@ class AIChoreographer:
 
     # Fallback move list when no platform is provided
     DEFAULT_MOVES = [
-        "Greeting", "PeekLeftRight", "Bow",
-        "InchForward", "StepForward", "RollForward",
-        "InchBackward", "StepBackward",
-        "GlideForward", "GlideBackward",
-        "Shimmy", "ShimmyFast", "Pulse", "Vibrate",
-        "TapOnLeft", "TapOnRight",
-        "PirouetteLeft", "PirouetteRight",
-        "SpinClockwise", "SpinCounterClockwise",
-        "Spin180CW", "Spin180CCW",
-        "Spin90CW", "Spin90CCW",
-        "Spin15CW", "Spin15CCW",
-        "ZigZaggingForward", "ZigZaggingBackward",
-        "SlalomForward", "SlalomBackward",
-        "WagWalk",
-        "ArcLeft", "ArcRight",
-        "TeacupSpinLeft", "TeacupSpinRight",
-        "TeacupCircleLeft", "TeacupCircleRight",
-        "SpiralLeft", "SpiralRight",
-        "FigureEight", "FlowerDance",
+        "Glance", "Bow",
+        "Step", "Glide",
+        "Shimmy", "Pulse", "Vibrate",
+        "Tap", "Pirouette",
+        "Spin",
+        "Zigzag", "Slalom", "WagWalk",
+        "Arc", "TeacupSpin", "TeacupCircle",
+        "Spiral", "FigureEight", "Flower",
     ]
 
     MODIFIER_SCHEMA = """\
@@ -443,6 +424,7 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
       "motifs": [
         {{
           "move": "<MOVE_NAME>",
+          "params": {{<move-specific params or empty object>}},
           "energy": <float>,
           "texture": "<texture_name>",
           "gap_before": <float>,
@@ -453,6 +435,21 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
     }}
   ]
 }}
+
+━━ Move parameters ━━
+Moves accept an optional "params" object with move-specific arguments:
+  Step:         {{"direction": "forward"|"backward"}}
+  Glide:        {{"direction": "forward"|"backward"}}
+  Spin:         {{"angle": <degrees, positive=CCW, negative=CW. e.g. 90, -180, 360>}}
+  Arc:          {{"direction": "left"|"right", "angle": <degrees, default 180>}}
+  Tap:          {{"side": "left"|"right"}}
+  Pirouette:    {{"side": "left"|"right"}}
+  Zigzag:       {{"direction": "forward"|"backward"}}
+  Slalom:       {{"direction": "forward"|"backward"}}
+  TeacupSpin:   {{"side": "left"|"right"}}
+  TeacupCircle: {{"direction": "left"|"right"}}
+  Spiral:       {{"direction": "left"|"right"}}
+  Glance, Bow, Shimmy, Pulse, Vibrate, WagWalk, FigureEight, Flower: no params needed (use {{}})
 
 ━━ Dancer design thinking guidelines ━━
 1. Organise into 3–5 named phrases (intro, buildup, climax, wind-down, outro).
@@ -476,7 +473,8 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
    — low energy + cloud = ethereal
 10. Never invent move names — only use the list above.
 11. Budget for ~3–8 seconds per move. Total sequence: 30–120 s unless specified.
-12. Return ONLY the JSON object. No extra text.
+12. Keep annotations short (under 50 chars). Do NOT embed position tracking in annotations.
+13. Return ONLY the JSON object. No markdown fences, no extra text.
 {stage_constraints}\
 """
 
@@ -579,7 +577,7 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
                       "heading direction.")
         parts.append("Do not plan moves that would take the robot beyond the stage boundaries.")
         parts.append("Prefer in-place and returning moves when near the edges.")
-        parts.append("If unsure, use smaller moves (Inch over Step, Step over Roll/Slalom).")
+        parts.append("If unsure, use smaller moves (Step over Glide, Glide over Slalom).")
 
         return "\n".join(parts)
 
@@ -613,7 +611,9 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system,
-                    max_output_tokens=4096,
+                    max_output_tokens=8192,
+                    response_mime_type="application/json",
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
             )
             raw = response.text.strip()
@@ -635,12 +635,17 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
                     ) from exc
 
     def _parse_json(self, text: str) -> dict:
+        import re
         text = text.strip()
+        # Strip markdown fences
         if text.startswith("```"):
             text = text[text.find("\n") + 1:]
             if "```" in text:
                 text = text[: text.rfind("```")]
-        return json.loads(text.strip())
+        text = text.strip()
+        # Remove trailing commas before } or ] (common LLM mistake)
+        text = re.sub(r",\s*([}\]])", r"\1", text)
+        return json.loads(text)
 
     def _dict_to_sequence(self, data: dict) -> Sequence:
         valid = set(self._get_available_moves())
@@ -659,6 +664,7 @@ gap_before  float [s]   pause before this move (0=bound/staccato, 0.8=free/suspe
                     texture = "neutral"
                 motifs.append(Motif(
                     move=move,
+                    params=m.get("params", {}),
                     energy=float(m.get("energy", 0.5)),
                     texture=texture,
                     gap_before=float(m.get("gap_before", 0.0)),

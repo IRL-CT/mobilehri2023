@@ -93,64 +93,47 @@ class DiffDrivePlatform(RobotPlatform):
         self._move_registry = self._build_move_registry()
 
     def _build_move_registry(self) -> dict:
-        """Build the mapping from move names to callables.
+        """Build the mapping from primitive move names to callables.
 
-        Each entry is a function that takes (twist_pub, **extra_kwargs).
-        The execute_move method handles translating MoveContext into kwargs.
+        Each entry is a function that takes (params, **extra_kwargs) where
+        params is a dict of move-specific parameters (direction, side, angle, etc.).
         """
         tp = self._twist_pub
         track = self._track_width
 
         return {
             # Social gestures
-            "Greeting":             lambda **kw: glance(tp, turn_duration=1.0, pause_duration=1.0, **kw),
-            "PeekLeftRight":        lambda **kw: glance(tp, turn_duration=0.6, pause_duration=1.0, **kw),
-            "Bow":                  lambda **kw: bow_sequence(tp, **kw),
-            # Linear steps
-            "InchForward":          lambda **kw: step(tp, direction="forward",  ramp_up_duration=0.2, ramp_down_duration=0.2, **kw),
-            "StepForward":          lambda **kw: step(tp, direction="forward",  ramp_up_duration=0.7, ramp_down_duration=0.3, profile="exponential", **kw),
-            "RollForward":          lambda **kw: step(tp, direction="forward",  ramp_up_duration=1.5, ramp_down_duration=0.8, **kw),
-            "InchBackward":         lambda **kw: step(tp, direction="backward", ramp_up_duration=0.2, ramp_down_duration=0.2, **kw),
-            "StepBackward":         lambda **kw: step(tp, direction="backward", ramp_up_duration=0.7, ramp_down_duration=0.3, profile="exponential", **kw),
-            "GlideForward":         lambda **kw: glide(tp, direction="forward",  duration=2.0, speed=0.3, **kw),
-            "GlideBackward":        lambda **kw: glide(tp, direction="backward", duration=2.0, speed=0.3, **kw),
+            "Glance":       lambda p, **kw: glance(tp, **kw),
+            "Bow":          lambda p, **kw: bow_sequence(tp, **kw),
+            # Linear translation
+            "Step":         lambda p, **kw: step(tp, direction=p.get("direction", "forward"), **kw),
+            "Glide":        lambda p, **kw: glide(tp, direction=p.get("direction", "forward"), **kw),
             # Expressive in-place
-            "Shimmy":               lambda **kw: shimmy(tp, duration=3.0, frequency=3.0, **kw),
-            "ShimmyFast":           lambda **kw: shimmy(tp, duration=2.0, frequency=5.0, magnitude=1.2, **kw),
-            "Pulse":                lambda **kw: pulse(tp, n=4, **kw),
-            "Vibrate":              lambda **kw: vibrate(tp, duration=2.0, **kw),
-            # Pivots and taps
-            "TapOnLeft":            lambda **kw: tap_on_side(tp, side="left", track=track, **kw),
-            "TapOnRight":           lambda **kw: tap_on_side(tp, side="right", track=track, **kw),
-            "PirouetteLeft":        lambda **kw: pirouette(tp, side="left", track=track, **kw),
-            "PirouetteRight":       lambda **kw: pirouette(tp, side="right", track=track, **kw),
-            # Axis spins
-            "SpinClockwise":        lambda **kw: spin_on_axis(tp, clockwise=True, **kw),
-            "SpinCounterClockwise": lambda **kw: spin_on_axis(tp, clockwise=False, **kw),
-            "Spin180CW":            lambda **kw: spin_on_axis(tp, clockwise=True,  rotations=0.5,  spin_duration=2.5, **kw),
-            "Spin180CCW":           lambda **kw: spin_on_axis(tp, clockwise=False, rotations=0.5,  spin_duration=2.5, **kw),
-            "Spin90CW":             lambda **kw: spin_on_axis(tp, clockwise=True,  rotations=0.25, spin_duration=2.0, **kw),
-            "Spin90CCW":            lambda **kw: spin_on_axis(tp, clockwise=False, rotations=0.25, spin_duration=2.0, **kw),
-            "Spin15CW":             lambda **kw: spin_on_axis(tp, clockwise=True,  rotations=0.04, spin_duration=1.0, **kw),
-            "Spin15CCW":            lambda **kw: spin_on_axis(tp, clockwise=False, rotations=0.04, spin_duration=1.0, **kw),
+            "Shimmy":       lambda p, **kw: shimmy(tp, **kw),
+            "Pulse":        lambda p, **kw: pulse(tp, **kw),
+            "Vibrate":      lambda p, **kw: vibrate(tp, **kw),
+            # Pivot / tap
+            "Tap":          lambda p, **kw: tap_on_side(tp, side=p.get("side", "right"), track=track, **kw),
+            "Pirouette":    lambda p, **kw: pirouette(tp, side=p.get("side", "left"), track=track, **kw),
+            # Spin — angle in degrees, positive=CCW, negative=CW
+            "Spin":         lambda p, **kw: spin_on_axis(
+                                tp,
+                                rotations=abs(p.get("angle", 360)) / 360.0,
+                                clockwise=p.get("angle", 360) < 0,
+                                **kw),
             # Weaving paths
-            "ZigZaggingForward":    lambda **kw: zigzag(tp, direction="forward", track=track, **kw),
-            "ZigZaggingBackward":   lambda **kw: zigzag(tp, direction="backward", track=track, **kw),
-            "SlalomForward":        lambda **kw: slalom(tp, direction="forward", **kw),
-            "SlalomBackward":       lambda **kw: slalom(tp, direction="backward", **kw),
-            "WagWalk":              lambda **kw: wag_walking(tp, **kw),
-            # Arc / circle patterns
-            "ArcLeft":              lambda **kw: drive_arc(tp, radius=0.5, angle=math.pi, direction="left", **kw),
-            "ArcRight":             lambda **kw: drive_arc(tp, radius=0.5, angle=math.pi, direction="right", **kw),
-            "TeacupSpinLeft":       lambda **kw: teacup_spin(tp, side="left", **kw),
-            "TeacupSpinRight":      lambda **kw: teacup_spin(tp, side="right", **kw),
-            "TeacupCircleLeft":     lambda **kw: teacup(tp, direction="left", **kw),
-            "TeacupCircleRight":    lambda **kw: teacup(tp, direction="right", **kw),
+            "Zigzag":       lambda p, **kw: zigzag(tp, direction=p.get("direction", "forward"), track=track, **kw),
+            "Slalom":       lambda p, **kw: slalom(tp, direction=p.get("direction", "forward"), **kw),
+            "WagWalk":      lambda p, **kw: wag_walking(tp, **kw),
+            # Arc / circle
+            "Arc":          lambda p, **kw: drive_arc(tp, direction=p.get("direction", "left"),
+                                radius=p.get("radius", 0.5), angle=math.radians(p.get("angle", 180)), **kw),
+            "TeacupSpin":   lambda p, **kw: teacup_spin(tp, side=p.get("side", "left"), **kw),
+            "TeacupCircle": lambda p, **kw: teacup(tp, direction=p.get("direction", "left"), **kw),
             # Complex paths
-            "SpiralLeft":           lambda **kw: spiral(tp, direction="left", **kw),
-            "SpiralRight":          lambda **kw: spiral(tp, direction="right", **kw),
-            "FigureEight":          lambda **kw: figure_eight(tp, **kw),
-            "FlowerDance":          lambda **kw: flower(tp, **kw),
+            "Spiral":       lambda p, **kw: spiral(tp, direction=p.get("direction", "left"), **kw),
+            "FigureEight":  lambda p, **kw: figure_eight(tp, **kw),
+            "Flower":       lambda p, **kw: flower(tp, **kw),
         }
 
     # ── RobotPlatform interface ──────────────────────────────────────────────
@@ -169,8 +152,8 @@ class DiffDrivePlatform(RobotPlatform):
         if context.enable_pre_roll:
             self.pre_roll(move_name, context)
 
-        # Execute the move
-        self._move_registry[move_name](**kwargs)
+        # Execute the move with params
+        self._move_registry[move_name](context.params, **kwargs)
 
         # §3: Active brake — freeze as tension
         if context.enable_active_brake:
@@ -241,88 +224,61 @@ class DiffDrivePlatform(RobotPlatform):
         if abs(residual_velocity) < 0.05:
             return None
         if residual_velocity > 0:
-            return "GlideForward"   # flowing with forward drift
-        return "GlideBackward"      # flowing with backward drift
+            return "Glide"   # flowing with forward drift
+        return "Glide"      # flowing with backward drift
 
     def get_move_displacements(self) -> dict[str, dict]:
-        """Approximate displacement per move at nominal energy.
+        """Approximate displacement per move at nominal energy with default params.
 
-        Derived from dance_moves.py default parameters. Values are rough
-        estimates for the AI choreographer to reason about stage boundaries.
+        Displacement depends on params (direction, angle, side). These are
+        estimates for the default param values. The AI prompt also receives
+        param descriptions so it can reason about non-default cases.
         """
         pi = 3.14159
         return {
-            # Social gestures — in-place
-            "Greeting":             {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.0, "returns": True},
-            "PeekLeftRight":        {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.0, "returns": True},
-            "Bow":                  {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.3, "returns": True},
-            # Linear steps
-            "InchForward":          {"dx": 0.2,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.2, "returns": False},
-            "StepForward":          {"dx": 0.5,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.5, "returns": False},
-            "RollForward":          {"dx": 1.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.0, "returns": False},
-            "InchBackward":         {"dx": -0.2, "dy": 0.0,  "dtheta": 0.0,    "radius": 0.2, "returns": False},
-            "StepBackward":         {"dx": -0.5, "dy": 0.0,  "dtheta": 0.0,    "radius": 0.5, "returns": False},
-            "GlideForward":         {"dx": 0.6,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.6, "returns": False},
-            "GlideBackward":        {"dx": -0.6, "dy": 0.0,  "dtheta": 0.0,    "radius": 0.6, "returns": False},
-            # Expressive in-place
-            "Shimmy":               {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.0, "returns": True},
-            "ShimmyFast":           {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.0, "returns": True},
-            "Pulse":                {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.1, "returns": True},
-            "Vibrate":              {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.05, "returns": True},
-            # Pivots and taps
-            "TapOnLeft":            {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.1, "returns": True},
-            "TapOnRight":           {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.1, "returns": True},
-            "PirouetteLeft":        {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.6, "returns": True},
-            "PirouetteRight":       {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 0.6, "returns": True},
-            # Axis spins
-            "SpinClockwise":        {"dx": 0.0,  "dy": 0.0,  "dtheta": -2*pi,  "radius": 0.0, "returns": True},
-            "SpinCounterClockwise": {"dx": 0.0,  "dy": 0.0,  "dtheta": 2*pi,   "radius": 0.0, "returns": True},
-            "Spin180CW":            {"dx": 0.0,  "dy": 0.0,  "dtheta": -pi,    "radius": 0.0, "returns": False},
-            "Spin180CCW":           {"dx": 0.0,  "dy": 0.0,  "dtheta": pi,     "radius": 0.0, "returns": False},
-            "Spin90CW":             {"dx": 0.0,  "dy": 0.0,  "dtheta": -pi/2,  "radius": 0.0, "returns": False},
-            "Spin90CCW":            {"dx": 0.0,  "dy": 0.0,  "dtheta": pi/2,   "radius": 0.0, "returns": False},
-            "Spin15CW":             {"dx": 0.0,  "dy": 0.0,  "dtheta": -pi/12, "radius": 0.0, "returns": False},
-            "Spin15CCW":            {"dx": 0.0,  "dy": 0.0,  "dtheta": pi/12,  "radius": 0.0, "returns": False},
-            # Weaving paths
-            "ZigZaggingForward":    {"dx": 0.8,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.0, "returns": False},
-            "ZigZaggingBackward":   {"dx": -0.8, "dy": 0.0,  "dtheta": 0.0,    "radius": 1.0, "returns": False},
-            "SlalomForward":        {"dx": 2.4,  "dy": 0.0,  "dtheta": 0.0,    "radius": 2.5, "returns": False},
-            "SlalomBackward":       {"dx": -2.4, "dy": 0.0,  "dtheta": 0.0,    "radius": 2.5, "returns": False},
-            "WagWalk":              {"dx": 1.5,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.5, "returns": False},
-            # Arc / circle patterns
-            "ArcLeft":              {"dx": 0.0,  "dy": 1.0,  "dtheta": pi,     "radius": 1.0, "returns": False},
-            "ArcRight":             {"dx": 0.0,  "dy": -1.0, "dtheta": -pi,    "radius": 1.0, "returns": False},
-            "TeacupSpinLeft":       {"dx": 0.0,  "dy": 1.0,  "dtheta": 2*pi,   "radius": 1.0, "returns": False},
-            "TeacupSpinRight":      {"dx": 0.0,  "dy": -1.0, "dtheta": -2*pi,  "radius": 1.0, "returns": False},
-            "TeacupCircleLeft":     {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.0, "returns": True},
-            "TeacupCircleRight":    {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.0, "returns": True},
-            # Complex paths
-            "SpiralLeft":           {"dx": 0.5,  "dy": 0.5,  "dtheta": 2*pi,   "radius": 1.5, "returns": False},
-            "SpiralRight":          {"dx": 0.5,  "dy": -0.5, "dtheta": -2*pi,  "radius": 1.5, "returns": False},
-            "FigureEight":          {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.0, "returns": True},
-            "FlowerDance":          {"dx": 0.0,  "dy": 0.0,  "dtheta": 0.0,    "radius": 1.6, "returns": True},
+            # In-place / returning
+            "Glance":       {"dx": 0.0, "dy": 0.0, "dtheta": 0.0,  "radius": 0.0, "returns": True},
+            "Bow":          {"dx": 0.0, "dy": 0.0, "dtheta": 0.0,  "radius": 0.3, "returns": True},
+            "Shimmy":       {"dx": 0.0, "dy": 0.0, "dtheta": 0.0,  "radius": 0.0, "returns": True},
+            "Pulse":        {"dx": 0.0, "dy": 0.0, "dtheta": 0.0,  "radius": 0.1, "returns": True},
+            "Vibrate":      {"dx": 0.0, "dy": 0.0, "dtheta": 0.0,  "radius": 0.05, "returns": True},
+            "Tap":          {"dx": 0.0, "dy": 0.0, "dtheta": 0.0,  "radius": 0.1, "returns": True},
+            "Pirouette":    {"dx": 0.0, "dy": 0.0, "dtheta": 0.0,  "radius": 0.6, "returns": True},
+            # Translation (default: forward)
+            "Step":         {"dx": 0.5, "dy": 0.0, "dtheta": 0.0,  "radius": 0.5, "returns": False,
+                             "note": "dx depends on direction: forward +0.5m, backward -0.5m"},
+            "Glide":        {"dx": 0.6, "dy": 0.0, "dtheta": 0.0,  "radius": 0.6, "returns": False,
+                             "note": "dx depends on direction: forward +0.6m, backward -0.6m"},
+            "Zigzag":       {"dx": 0.8, "dy": 0.0, "dtheta": 0.0,  "radius": 1.0, "returns": False,
+                             "note": "dx depends on direction: forward +0.8m, backward -0.8m"},
+            "Slalom":       {"dx": 2.4, "dy": 0.0, "dtheta": 0.0,  "radius": 2.5, "returns": False,
+                             "note": "dx depends on direction: forward +2.4m, backward -2.4m"},
+            "WagWalk":      {"dx": 1.5, "dy": 0.0, "dtheta": 0.0,  "radius": 1.5, "returns": False},
+            # Spin (default: 360 CCW)
+            "Spin":         {"dx": 0.0, "dy": 0.0, "dtheta": 2*pi, "radius": 0.0, "returns": True,
+                             "note": "dtheta = angle param in rad. 360=full turn (returns), <360=partial (does not return)"},
+            # Arc / curves (default: left, 180 deg)
+            "Arc":          {"dx": 0.0, "dy": 1.0, "dtheta": pi,   "radius": 1.0, "returns": False,
+                             "note": "displacement depends on direction and angle params"},
+            "TeacupSpin":   {"dx": 0.0, "dy": 1.0, "dtheta": 2*pi, "radius": 1.0, "returns": False,
+                             "note": "lateral displacement depends on side param"},
+            "TeacupCircle": {"dx": 0.0, "dy": 0.0, "dtheta": 0.0,  "radius": 1.0, "returns": True},
+            "Spiral":       {"dx": 0.5, "dy": 0.5, "dtheta": 2*pi, "radius": 1.5, "returns": False,
+                             "note": "displacement depends on direction param"},
+            "FigureEight":  {"dx": 0.0, "dy": 0.0, "dtheta": 0.0,  "radius": 1.0, "returns": True},
+            "Flower":       {"dx": 0.0, "dy": 0.0, "dtheta": 0.0,  "radius": 1.6, "returns": True},
         }
 
     def get_move_categories(self) -> dict[str, list[str]]:
         return {
-            "social":     ["Greeting", "PeekLeftRight", "Bow"],
-            "forward":    ["InchForward", "StepForward", "RollForward",
-                           "GlideForward", "WagWalk", "SlalomForward",
-                           "ZigZaggingForward"],
-            "backward":   ["InchBackward", "StepBackward", "GlideBackward",
-                           "SlalomBackward", "ZigZaggingBackward"],
-            "spin":       ["SpinClockwise", "SpinCounterClockwise",
-                           "Spin180CW", "Spin180CCW",
-                           "Spin90CW", "Spin90CCW",
-                           "Spin15CW", "Spin15CCW"],
-            "pivot":      ["PirouetteLeft", "PirouetteRight",
-                           "TeacupSpinLeft", "TeacupSpinRight"],
-            "arc":        ["ArcLeft", "ArcRight",
-                           "TeacupCircleLeft", "TeacupCircleRight"],
-            "complex":    ["SpiralLeft", "SpiralRight",
-                           "FigureEight", "FlowerDance"],
-            "percussive": ["TapOnLeft", "TapOnRight"],
-            "expressive": ["Shimmy", "ShimmyFast", "Pulse", "Vibrate"],
+            "social":     ["Glance", "Bow"],
+            "linear":     ["Step", "Glide", "WagWalk"],
+            "weaving":    ["Zigzag", "Slalom"],
+            "spin":       ["Spin", "Pirouette"],
+            "arc":        ["Arc", "TeacupSpin", "TeacupCircle"],
+            "complex":    ["Spiral", "FigureEight", "Flower"],
+            "percussive": ["Tap"],
+            "expressive": ["Shimmy", "Pulse", "Vibrate"],
         }
 
     def get_platform_description(self) -> str:
@@ -330,13 +286,24 @@ class DiffDrivePlatform(RobotPlatform):
             "A differential-drive dance robot with two wheels. "
             "It can move forward/backward, spin in place, pivot around one wheel, "
             "and drive arcs, spirals, figure-eights, and flower curves. "
-            f"Track width: {self._track_width}m."
+            f"Track width: {self._track_width}m. "
+            "Moves accept params for direction/side/angle — see the parameter "
+            "descriptions in the move list."
         )
 
     # ── Internal helpers ─────────────────────────────────────────────────────
 
     def _context_to_kwargs(self, context: MoveContext) -> dict:
-        """Translate MoveContext into kwargs that dance_moves functions accept."""
+        """Translate MoveContext into kwargs that dance_moves functions accept.
+
+        Texture mapping to the dancer vocabulary system:
+            neutral  → default weight and energy (no modification)
+            honey    → heavy weight (slow ramps, grounded feel)
+            staccato → light weight + energy boost (instant torque, sharp)
+            ice      → light weight + energy reduction (gliding, minimal friction)
+            cloud    → light weight (floaty, exponential curves)
+            magnet   → neutral weight + noise (push-pull organic variation)
+        """
         kwargs = {}
 
         if context.energy != 0.5:
@@ -346,13 +313,26 @@ class DiffDrivePlatform(RobotPlatform):
         if context.noise_level > 0.0:
             kwargs["noise_level"] = context.noise_level
 
-        # Apply texture as ramp scaling
-        # The texture profiles modify how the underlying move functions behave
-        # by adjusting their timing parameters through the weight/energy system
-        tex = TEXTURE_PROFILES.get(context.texture, TEXTURE_PROFILES[Texture.NEUTRAL])
-        if context.texture == Texture.CLOUD:
-            kwargs.setdefault("weight", "light")
-        elif context.texture == Texture.HONEY:
+        # Apply texture — translate abstract quality into motor behavior
+        if context.texture == Texture.HONEY:
             kwargs.setdefault("weight", "heavy")
+        elif context.texture == Texture.STACCATO:
+            kwargs.setdefault("weight", "light")
+            # Boost energy for percussive snap
+            e = kwargs.get("energy", context.energy)
+            kwargs["energy"] = min(1.0, e * 1.4)
+        elif context.texture == Texture.ICE:
+            kwargs.setdefault("weight", "light")
+            # Reduce energy for gliding coast
+            e = kwargs.get("energy", context.energy)
+            kwargs["energy"] = max(0.1, e * 0.6)
+        elif context.texture == Texture.CLOUD:
+            kwargs.setdefault("weight", "light")
+            # Slightly lower energy for floaty feel
+            e = kwargs.get("energy", context.energy)
+            kwargs["energy"] = max(0.1, e * 0.8)
+        elif context.texture == Texture.MAGNET:
+            # Add noise for organic push-pull dynamics
+            kwargs.setdefault("noise_level", 0.15)
 
         return kwargs

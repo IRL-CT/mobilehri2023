@@ -44,9 +44,9 @@ class TeleopTwistJoy(Node):
             self.send_dance_goal("Bow")
         self.prev_button0 = msg.buttons[0]
 
-        # Check for button [O] to trigger PeekLeftRight
+        # Check for button [O] to trigger Glance
         if msg.buttons[1] == 1 and self.prev_button1 == 0:
-            self.send_dance_goal("PeekLeftRight")
+            self.send_dance_goal("Glance")
         self.prev_button1 = msg.buttons[1]
 
         # Check for button [△] to trigger dance_action_client
@@ -87,12 +87,12 @@ class TeleopTwistJoy(Node):
 
         # Check for forward button to trigger slalom forward
         if msg.axes[7] == 1.0 and self.prev_forward == 0.0:
-            self.send_dance_goal("SlalomForward")
+            self.send_dance_goal("Slalom", params={"direction": "forward"})
         self.prev_forward = msg.axes[7]
 
-        # Check for backward button to trigger slalom forward
+        # Check for backward button to trigger slalom backward
         if msg.axes[7] == -1.0 and self.prev_backward == 0.0:
-            self.send_dance_goal("SlalomBackward")
+            self.send_dance_goal("Slalom", params={"direction": "backward"})
         self.prev_backward = msg.axes[7]
 
         # Check for button [R1] to trigger dance_action_client
@@ -117,10 +117,12 @@ class TeleopTwistJoy(Node):
         else:
             pass
 
-    def send_dance_goal(self, dance_move):
+    def send_dance_goal(self, dance_move, params=None):
+        import json
         goal_msg = Dance.Goal()
         goal_msg.dance_move = dance_move
-        
+        goal_msg.params = json.dumps(params) if params else ""
+
         if self._action_client.wait_for_server(timeout_sec=1.0):
             self.get_logger().info(f'Sending goal: {dance_move}')
             future = self._action_client.send_goal_async(goal_msg)

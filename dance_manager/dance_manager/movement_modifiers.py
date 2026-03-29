@@ -40,7 +40,7 @@ Usage — sequence-level specs (for AIChoreographer)
     from dance_manager.movement_modifiers import seq_repeat, seq_crescendo
 
     motif = {
-        "move": "TapOnRight",
+        "move": "Tap",
         "modifier": seq_repeat(n=4, gap=0.2),
     }
 """
@@ -278,11 +278,11 @@ def seq_repeat(n: int, gap: float = 0.0) -> dict:
 
 
 def seq_mirror(gap: float = 0.0) -> dict:
-    """Sequence spec: run the move twice — once with 'Left' variant, once 'Right'.
+    """Sequence spec: run the move twice — once with side='left', once side='right'.
 
-    Requires the move name to follow the Left/Right naming convention, e.g.
-    'PirouetteLeft' mirrors to 'PirouetteRight'. The run_sequence() runner
-    handles the name substitution automatically.
+    The run_sequence() runner injects {"side": "left"} then {"side": "right"}
+    into the motif's params dict. Works with any move that accepts a side param
+    (e.g. Tap, Pirouette, TeacupSpin).
     """
     return {"type": "mirror", "gap": gap}
 

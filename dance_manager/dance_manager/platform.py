@@ -79,6 +79,7 @@ class MoveContext:
         noise_level: Organic variation [0.0–1.0]. 0=mechanical, 0.1=natural.
         enable_pre_roll: Whether to execute a preparatory micro-movement.
         enable_active_brake: Whether to use active braking after the move.
+        params: Move-specific parameters (e.g. direction, side, angle).
     """
     energy: float = 0.5
     texture: Texture = Texture.NEUTRAL
@@ -86,6 +87,7 @@ class MoveContext:
     noise_level: float = 0.0
     enable_pre_roll: bool = True
     enable_active_brake: bool = True
+    params: dict = field(default_factory=dict)
 
 
 # ── Abstract Base Class ──────────────────────────────────────────────────────
